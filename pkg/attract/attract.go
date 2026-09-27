@@ -130,6 +130,16 @@ func StartAttractMode(cfg *config.Config, files []gamesdb.FileInfo) error {
 	picker := NewPicker(cfg, filtered, false)
 	fmt.Printf("[Attract] Picking: %s\n", cfg.Attract.Selection)
 
+	// Started by -find: that search's games play first.
+	if StartWithFind != "" {
+		searchQueue = findGames(filtered, StartWithFind)
+		if len(searchQueue) == 0 {
+			fmt.Printf("[Search] Nothing found for %q\n", StartWithFind)
+		} else {
+			fmt.Printf("[Search] %d games for %q, playing them first\n", len(searchQueue), StartWithFind)
+		}
+	}
+
 	// removeGame drops a game from the pool attract mode picks from.
 	removeGame := func(path string) {
 		picker.Remove(path)
@@ -723,6 +733,10 @@ func openGamesMenu(search bool) {
 		_ = cmd.Process.Release()
 	}
 }
+
+// StartWithFind is a search whose games play first when attract mode starts
+// (set by -find when attract mode wasn't already running).
+var StartWithFind string
 
 // searchQueue holds the games a typed search found, played before the
 // normal random list resumes.

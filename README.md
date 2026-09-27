@@ -6,7 +6,7 @@
 A games menu, launcher and attract mode for the [MiSTer FPGA](https://github.com/MiSTer-devel), inspired by
 [**MiSTer SAM** (Super Attract Mode) by mrchrisster](https://github.com/mrchrisster/MiSTer_SAM).
 
-Browse and search your whole collection, launch games straight into their cores with MGL files,
+Browse and search your whole collection, launch games straight into their cores automatically,
 and let the MiSTer show itself off with an attract mode that plays random games, music and videos.
 
 </div>
@@ -41,6 +41,7 @@ and let the MiSTer show itself off with an attract mode that plays random games,
   - [Name tags](#name-tags)
 - [Systems and groups](#systems-and-groups)
 - [Files and folders](#files-and-folders)
+  - [Easy on the SD card](#easy-on-the-sd-card)
 - [Building from source](#building-from-source)
 - [Credits](#credits)
 
@@ -49,7 +50,8 @@ and let the MiSTer show itself off with an attract mode that plays random games,
 ## Features
 
 - 🎮 **A fast games menu** for 114 systems (consoles, handhelds, computers and arcade), grouped and sorted the way you like, with a search that works from a controller.
-- 🚀 **Launches games with MGL files**, straight into the right core, including special cases like AmigaVision.
+- 🚀 **Launches games automatically**, with temporary MGL files generated in RAM, straight into the right core, including special cases like AmigaVision.
+- 💾 **Easy on the SD card:** the busy, repetitive work happens in RAM, and memory use is capped (see [Easy on the SD card](#easy-on-the-sd-card)).
 - 📺 **Attract mode** plays random games one after another, with smart picking (balanced across systems, no repeats, one version per title), a history to go back and forward through, and full control from a controller, keyboard, mouse or SSH.
 - 🎲 **[Pick Random Game]** at the top of every list, and **virtual [Games A-Z] folders** for big genre-sorted sets.
 - 🗂️ **Genres** from your genre folders: browse every game by genre across all systems, and build **attract playlists** like "Fighters Night", including **custom genres** made from any word ("Mario").
@@ -130,6 +132,12 @@ Move down past the bottom row of keys to reach the **Search** button. On a keybo
 From 3 letters on, the number of games your search will find shows under the text as you type (`1,284 matches`, `No matches`), so you know whether it's worth pressing Search. The same live count appears when typing a playlist's Skip words or a custom genre.
 
 Results always read **`[System] Title.ext`**, with the systems A-Z and then the titles A-Z. **A** launches the highlighted game, and **B** goes back to the keyboard with your text kept.
+
+**From SSH or a script:**
+
+- `SAMenu.sh -find mario 3` plays every game matching the words, then carries on with attract mode as usual. Nothing to pick, and it starts attract mode if it isn't running. It's the same as the search key during attract mode.
+- `SAMenu.sh -search` opens the search screen **on the TV** (for remotes like Zaparoo).
+- `ssh -t root@<mister-ip> "/media/fat/Scripts/SAMenu.sh -search -here"` opens it **in your SSH window** instead. The games you pick still load on the MiSTer. The whole menu works that way too: `SAMenu.sh` on its own, or `-menu -here`.
 
 ### The Options menu
 
@@ -391,10 +399,11 @@ Everything can be run over SSH or from any script:
 | `-blacklist` | Never play this game again, next game |
 | `-stop` | Stop attract mode and go back to the MiSTer menu |
 | `-attract -playlist "Fighters Night"` | Use this attract playlist, this run (Normal = the usual setup) |
-| `-find mario 3` | Play the games matching all the words first, then carry on |
-| **SAMenu on the TV** | |
+| `-find mario 3` | Play the games matching all the words first, then carry on (starts attract mode if it isn't running) |
+| **SAMenu on the TV, or here** | |
 | `-menu` | Open SAMenu on the TV (closes the running game) |
 | `-search` | …straight into its Search screen |
+| `-menu -here`, `-search -here` | Open it in this terminal instead, e.g. over SSH with `ssh -t` |
 | **Games** | |
 | `-launch <file>` | Launch a game, for example `-launch /media/fat/games/NES/Tetris.nes` |
 | `-random` | Launch a random game |
@@ -723,6 +732,24 @@ For example, `Include = Nintendo, Sega` with `Exclude = Gameboy2P` plays every N
 | `/tmp/SAMenu_detector` | The static detector's live status |
 
 To use a different settings file, set the environment variable `SAMENU_CONFIG`.
+
+### Easy on the SD card
+
+SD cards wear out with repeated writing, so SAMenu keeps its busy work in **RAM** (`/tmp`, which vanishes at power-off):
+
+- **Launching:** each game gets a small MGL file generated in RAM (`/tmp/.LASTLAUNCH.mgl`), not saved to the card.
+- **Attract mode:** its log, status, history, command pipes and locks are all in RAM. The static detector's live status is rewritten up to 10 times a second, in RAM.
+- **Music and video:** status and command files in RAM, and MPlayer is unpacked into RAM once per boot.
+- **Searching and browsing:** the games database is read once and kept in memory, so browsing and searching never touch the card.
+
+**What does get written to the SD card**, and only when it has to be:
+
+- **`SAMenu.ini`**, when you change a setting.
+- **`games.db`**, when you rebuild the database. It's written once, to a temporary file that's swapped in when complete.
+- **The lists**, when the static detector or the blacklist action adds a game (one short line).
+- **`position.txt`**, when you launch a game or leave the menu, with Remember position on.
+
+**Capped:** attract mode, which can run for hours, limits its memory to **128 MB** (of the MiSTer's roughly 500 MB for Linux), keeps a history of the last **100** games, and starts a **fresh log** each session.
 
 ---
 

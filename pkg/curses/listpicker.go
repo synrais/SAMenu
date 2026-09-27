@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	gc "github.com/rthornton128/goncurses"
 	"github.com/synrais/SAMenu/pkg/utils"
@@ -29,7 +30,17 @@ type ListPickerOpts struct {
 	Headers map[int]bool
 	// Top is the window's top row; 0 (the default) centres it.
 	Top int
+	// ScrollKey names this list for remembering its scroll position
+	// between openings (see scrollMemory). Empty uses the Title; set it
+	// when the title changes while the list is in use, e.g. a tick count.
+	ScrollKey string
 }
+
+// scrollMemory is where each list was last scrolled to, by its ScrollKey
+// or title. Menus close and reopen their list after every change (a tick,
+// a setting), and a list that only knew which line to highlight worked
+// out a fresh scroll position, so the page jumped around the highlight.
+var scrollMemory = map[string]int{}
 
 func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, int, error) {
 	// Apply InitialIndex safely
@@ -57,6 +68,18 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			}
 		}
 	}
+	// Reopened (the same list, after a change): keep the page where it
+	// was, as long as the highlight is still on it and it still fits.
+	scrollKey := opts.ScrollKey
+	if scrollKey == "" {
+		scrollKey = opts.Title
+	}
+	if saved, ok := scrollMemory[scrollKey]; ok && saved >= 0 &&
+		selectedItem >= saved && selectedItem < saved+viewHeight &&
+		(saved == 0 || saved+viewHeight <= len(items)) {
+		viewStart = saved
+	}
+	defer func() { scrollMemory[scrollKey] = viewStart }()
 
 	// marquee tracking
 	currentSelection := -1
@@ -180,15 +203,19 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			item := items[viewStart+i]
 			display := item
 
+			// Long lines: the highlighted one scrolls, the others end in
+			// "...". Measured in bytes, as the screen library counts them,
+			// but never cut in the middle of an accented or other
+			// non-English letter (see cutBytes).
 			if len(item) > viewWidth {
 				if viewStart+i == selectedItem {
 					// build marquee string with gap
 					marquee := item + "   "
 					marquee = marquee + marquee
 					offset := scrollOffset % (len(item) + 3)
-					display = marquee[offset : offset+viewWidth]
+					display = cutBytes(marquee, offset, offset+viewWidth)
 				} else {
-					display = item[:viewWidth-3] + "..."
+					display = cutBytes(item, 0, viewWidth-3) + "..."
 				}
 			}
 
@@ -343,4 +370,20 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 	}
 
 	return -1, -1, nil
+}
+
+// cutBytes is s[from:to], moved inwards so it starts and ends on whole
+// characters: a letter made of several bytes (é, ö, Japanese...) is left
+// out rather than cut in half into a broken symbol.
+func cutBytes(s string, from, to int) string {
+	if to > len(s) {
+		to = len(s)
+	}
+	for from < to && !utf8.RuneStart(s[from]) {
+		from++
+	}
+	for to > from && to < len(s) && !utf8.RuneStart(s[to]) {
+		to--
+	}
+	return s[from:to]
 }

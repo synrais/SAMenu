@@ -285,12 +285,12 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 			all = config.GenreLabels(p.All)
 		}
 		items := []string{
-			fitText("Plays: "+config.DescribePlaylist(p, nameOf), optionsWidth-6),
-			fitText(fmt.Sprintf("%-18s %s", "All systems:", all), optionsWidth-6),
+			"Plays: " + config.DescribePlaylist(p, nameOf),
+			fmt.Sprintf("%-18s %s", "All systems:", all),
 			fmt.Sprintf("%-18s %d picked", "Per system:", len(p.Systems)),
 			othersLine(p),
-			fitText(fmt.Sprintf("%-23s %s", "Skip:", skipText(p)), optionsWidth-6),
-			fitText(fmt.Sprintf("%-23s %s", "Leave out systems:", leftOutText(p, nameOf)), optionsWidth-6),
+			fmt.Sprintf("%-23s %s", "Skip:", skipText(p)),
+			fmt.Sprintf("%-23s %s", "Leave out systems:", leftOutText(p, nameOf)),
 			"Rename...",
 			"Delete this playlist",
 		}
@@ -389,7 +389,7 @@ func perSystemGenres(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p 
 			if g := p.Systems[id]; len(g) > 0 {
 				picks = strings.Join(g, ", ")
 			}
-			items[i] = fitText(fmt.Sprintf("%-22s %s", nameOf(id), picks), optionsWidth-6)
+			items[i] = fmt.Sprintf("%-22s %s", nameOf(id), picks)
 		}
 		sel, ok := optionsList(stdscr, "Per system: "+p.Name, items, selected)
 		if !ok {

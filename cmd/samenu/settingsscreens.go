@@ -290,6 +290,7 @@ func tickListWith(stdscr *gc.Window, title string, ids, labels []string, on map[
 		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
 			Shortcuts:     menuShortcuts(),
 			Title:         fmt.Sprintf("%s (%d of %d)", title, countTicks(on, ids), len(ids)),
+			ScrollKey:     "tick:" + title, // the title's count changes with every tick
 			Buttons:       []string{"Toggle", "All", "None", "Back"},
 			ActionButton:  0,
 			DefaultButton: 0,

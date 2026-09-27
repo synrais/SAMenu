@@ -43,7 +43,7 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 			toggle = "Stop music"
 		}
 		items := []string{
-			fmt.Sprintf("%-22s (%s)", toggle, fitText(music.Status(), optionsWidth-32)),
+			fmt.Sprintf("%-22s (%s)", toggle, music.Status()),
 			"Next track",
 			fmt.Sprintf("%-22s %s", "Playback:", m.Playback),
 			fmt.Sprintf("%-22s %s", "Playlist:", playlistName(m.Playlist)),

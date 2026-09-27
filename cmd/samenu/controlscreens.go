@@ -99,7 +99,7 @@ func controlsScreen(stdscr *gc.Window, cfg *config.Config) {
 			items = append(items, fmt.Sprintf("%-20s %s", sw.name+":", onOff(*sw.on)))
 		}
 		for _, act := range config.AttractActions {
-			items = append(items, fitText(fmt.Sprintf("%-20s %s", attractActionNames[act]+":", attractBindingText(cfg, act)), optionsWidth-6))
+			items = append(items, fmt.Sprintf("%-20s %s", attractActionNames[act]+":", attractBindingText(cfg, act)))
 		}
 		sel := bindingPicker(stdscr, "Controls", items, selected)
 		if sel < 0 {

@@ -35,6 +35,15 @@ type MenuFile = gamesdb.FileInfo
 // errGameLaunched unwinds the menu so the program exits once a game starts.
 var errGameLaunched = errors.New("game launched")
 
+// errAttractStarted is Options -> Start attract mode: a kind of
+// errGameLaunched (the menu closes), but the menu then exits the way Exit
+// does, so attract mode starts from a clean MiSTer menu (see main).
+var errAttractStarted = fmt.Errorf("attract mode started: %w", errGameLaunched)
+
+// afterMenuEnv tells attract mode started from the menu which process to
+// wait for (the menu), before it launches its first game.
+const afterMenuEnv = "SAMENU_AFTER_MENU"
+
 // -------------------------
 // Load Gob Index
 // -------------------------
@@ -161,7 +170,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 							fmt.Sprintf("Failed to start attract mode: %v", err), false, true)
 						return nil, false, nil
 					}
-					return nil, true, errGameLaunched // the menu exits, attract mode carries on
+					return nil, true, errAttractStarted // the menu exits, attract mode carries on
 				case 1:
 					attractSettingsScreen(stdscr, cfg, sysIds)
 				case 2:
@@ -545,6 +554,11 @@ func runAttract(cfg *config.Config) {
 // -------------------------
 
 func main() {
+	// Started from the Scripts menu, we inherit MiSTer's own core (core 1,
+	// where its main program runs): use any core, like over SSH, and so
+	// does everything we start.
+	mister.UseAllCores()
+
 	listPtr := flag.Bool("list", false, "Print every game in the database, one per line")
 	genresPtr := flag.Bool("genres", false, "Print the genres found in the games database, with counts per system")
 	printPtr := flag.Bool("print", false, "Same as -list")
@@ -563,7 +577,8 @@ func main() {
 	menuPtr := flag.Bool("menu", false, "Open SAMenu on the TV (closes the running game)")
 	searchPtr := flag.Bool("search", false, "Open SAMenu's Search on the TV (closes the running game)")
 	openMenuPtr := flag.String("openmenu", "", "Internal: open SAMenu on the TV (menu or search)")
-	findPtr := flag.Bool("find", false, "Attract mode: play the games matching the words given first, e.g. -find mario 3")
+	findPtr := flag.Bool("find", false, "Play the games matching the words first, e.g. -find mario 3 (starts attract mode if it isn't running)")
+	herePtr := flag.Bool("here", false, "With -search or -menu: open it in this terminal (e.g. over SSH), not on the TV")
 	musicPtr := flag.String("music", "", "Music player: start, stop, next or status")
 	musicdPtr := flag.Bool("musicd", false, "Internal: the music player process")
 	videoPtr := flag.String("video", "", "Video player: play [file|folder|playlist|-], next, stop or status")
@@ -621,13 +636,23 @@ func main() {
 		bootStart(*bootPtr)
 		return
 	}
-	if *findPtr {
+	if *findPtr && !*attractPtr { // -attract -find: attract mode's own start (below)
 		query := strings.TrimSpace(strings.Join(flag.Args(), " "))
 		if query == "" {
 			fmt.Println("Usage: SAMenu.sh -find <words>, e.g. -find mario 3")
 			os.Exit(1)
 		}
-		remoteCommand("find:" + query)
+		// Attract mode running: it plays them next. Not running: start it,
+		// playing them first, then carrying on as usual.
+		if attract.SendCommand("find:"+query) == nil {
+			fmt.Printf("Attract mode will play the games matching %q first.\n", query)
+			return
+		}
+		if err := startAttractInBackground("-find", query); err != nil {
+			fmt.Println("Couldn't start attract mode:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Attract mode started, playing the games matching %q first. Log: %s\n", query, attractLog)
 		return
 	}
 	if *openMenuPtr != "" {
@@ -642,7 +667,7 @@ func main() {
 	}
 	// On the TV these just open the menu (-search straight into Search);
 	// from anywhere else they open it on the TV.
-	if (*menuPtr || *searchPtr) && !mister.OnConsole() {
+	if (*menuPtr || *searchPtr) && !mister.OnConsole() && !*herePtr {
 		openOnTV(*searchPtr)
 		return
 	}
@@ -736,13 +761,16 @@ func main() {
 		// Attract mode can run for hours on a MiSTer with ~500 MB shared
 		// with Linux and MiSTer's own program: keep Go's memory in check.
 		debug.SetMemoryLimit(128 * 1024 * 1024)
+		waitForMenuExit()
 
 		// Systems or groups after -attract replace [Attract] Include for
 		// this run, e.g. -attract Nintendo,Console.
 		if *playlistPtr != "" {
 			cfg.Attract.Playlist = *playlistPtr // this run only; SAMenu.ini is left alone
 		}
-		if args := flag.Args(); len(args) > 0 {
+		if *findPtr { // started by -find: the words are the search, played first
+			attract.StartWithFind = strings.TrimSpace(strings.Join(flag.Args(), " "))
+		} else if args := flag.Args(); len(args) > 0 {
 			cfg.Attract.Include = nil
 			for _, a := range args {
 				cfg.Attract.Include = append(cfg.Attract.Include, strings.Split(a, ",")...)
@@ -781,7 +809,11 @@ func main() {
 	if err != nil && !errors.Is(err, errGameLaunched) {
 		log.Fatal(err)
 	}
-	if err == nil { // Exit
+	// Exit, and Start attract mode: leave the way Exit does. Attract mode
+	// (started in the background) waits for this, so its first game loads
+	// from a clean MiSTer menu, not the finished script screen with the
+	// menu's text size still set, which some cores don't load from.
+	if err == nil || errors.Is(err, errAttractStarted) {
 		gc.End()
 		if mister.OnConsole() {
 			// On the MiSTer's own screen, go straight back to the MiSTer
@@ -826,6 +858,9 @@ func startAttractInBackground(systems ...string) error {
 	cmd := exec.Command(exe, append([]string{"-attract"}, systems...)...)
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=%d", logT0Env, t0.UnixNano()))
+	if menuLock != nil { // from the menu: wait for it to finish exiting
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%d", afterMenuEnv, os.Getpid()))
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	return cmd.Start()
 }
@@ -850,4 +885,24 @@ func folderNode(parent *gamesdb.Node, e gamesdb.Entry) *gamesdb.Node {
 		return e.Node
 	}
 	return parent.Children[e.Folder]
+}
+
+// waitForMenuExit is for attract mode started from the menu: it waits for
+// the menu's process to end (it exits the way Exit does, reloading the
+// MiSTer menu), then gives that reload time to finish, so the first game
+// isn't loaded over the finished script screen, or wiped by the reload.
+func waitForMenuExit() {
+	pid := os.Getenv(afterMenuEnv)
+	if pid == "" {
+		return
+	}
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat("/proc/" + pid); err != nil {
+			break // the menu has gone
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	time.Sleep(2 * time.Second) // the MiSTer menu core reloading
+	fmt.Println("[Attract] SAMenu has closed, starting")
 }
