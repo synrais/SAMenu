@@ -67,6 +67,7 @@ func applyMenuConfig(m config.MenuConfig) {
 	if m.GenresOrder != "" {
 		genresOrder = m.GenresOrder
 	}
+	genresLeftOut, _ = games.ResolveSystems(m.GenresExclude)
 	optAlign.set(m.LabelAlign)
 	optDivider.set(m.LabelDivider)
 	optAlignDivider.setBool(m.LabelAlignDivider)

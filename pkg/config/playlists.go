@@ -43,6 +43,9 @@ type Playlist struct {
 	// ("SNES.Skip = ..." in the ini) only for one system.
 	Skip       []string
 	SystemSkip map[string][]string // lower-case system ID -> patterns
+	// Exclude: systems (or groups) this playlist never plays, whatever
+	// genres are picked, e.g. "Exclude = Computer, NES".
+	Exclude []string
 }
 
 // SkipFor is the skip patterns for a system: the playlist's and its own.
@@ -85,6 +88,8 @@ func loadPlaylists(cfg *Config, file *ini.File) {
 				p.All = splitGenres(k.String())
 			case "skip":
 				p.Skip = splitGenres(k.String())
+			case "exclude":
+				p.Exclude = splitGenres(k.String())
 			case "others":
 				if strings.EqualFold(strings.TrimSpace(k.String()), OthersAsNormal) {
 					p.Others = OthersAsNormal
@@ -153,7 +158,8 @@ func SavePlaylist(cfg *Config, p *Playlist) error {
 			values = append(values, [2]string{properID(id), strings.Join(p.Systems[id], ", ")})
 		}
 	}
-	values = append(values, [2]string{"Others", p.Others}, [2]string{"Skip", strings.Join(p.Skip, ", ")})
+	values = append(values, [2]string{"Others", p.Others}, [2]string{"Skip", strings.Join(p.Skip, ", ")},
+		[2]string{"Exclude", strings.Join(p.Exclude, ", ")})
 	skipIDs := make([]string, 0, len(p.SystemSkip))
 	for id := range p.SystemSkip {
 		skipIDs = append(skipIDs, id)
@@ -249,6 +255,16 @@ func DescribePlaylist(p *Playlist, sysName func(id string) string) string {
 	}
 	if len(p.SystemSkip) > 0 {
 		parts = append(parts, "plus per-system skips")
+	}
+	if len(p.Exclude) > 0 {
+		names := make([]string, len(p.Exclude))
+		for i, id := range p.Exclude {
+			names[i] = id
+			if sysName != nil {
+				names[i] = sysName(id)
+			}
+		}
+		parts = append(parts, "leaving out "+strings.Join(names, ", "))
 	}
 	switch {
 	case len(p.All) > 0:

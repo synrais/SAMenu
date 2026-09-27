@@ -192,7 +192,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 				case 4:
 					randomGameScreen(stdscr, cfg)
 				case 5:
-					genresScreen(stdscr, cfg)
+					genresScreen(stdscr, cfg, files)
 				}
 				return nil, false, nil
 			})

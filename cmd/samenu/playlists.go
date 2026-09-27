@@ -290,6 +290,7 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 			fmt.Sprintf("%-18s %d picked", "Per system:", len(p.Systems)),
 			othersLine(p),
 			fitText(fmt.Sprintf("%-23s %s", "Skip:", skipText(p)), optionsWidth-6),
+			fitText(fmt.Sprintf("%-23s %s", "Leave out systems:", leftOutText(p, nameOf)), optionsWidth-6),
 			"Rename...",
 			"Delete this playlist",
 		}
@@ -330,6 +331,8 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 			p.Skip = append(skipPatterns(text), kept...)
 			save()
 		case 5:
+			leaveOutSystems(stdscr, files, p, nameOf, save)
+		case 6:
 			name, ok := askPlaylistName(stdscr, cfg, p.Name)
 			if !ok || name == p.Name {
 				continue
@@ -346,7 +349,7 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 			if wasActive {
 				_ = config.SetActivePlaylist(cfg, name)
 			}
-		case 6:
+		case 7:
 			if s, ok := optionsList(stdscr, "Delete "+p.Name+"?", []string{"Delete it", "Keep it"}, 1); ok && s == 0 {
 				if err := config.DeletePlaylist(cfg, p.Name); err != nil {
 					message(stdscr, fmt.Sprintf("Couldn't delete: %v", err))
@@ -477,4 +480,76 @@ func skipPatterns(text string) []string {
 		}
 	}
 	return out
+}
+
+// leftOutText shows a playlist's left-out systems.
+func leftOutText(p *config.Playlist, nameOf func(string) string) string {
+	if len(p.Exclude) == 0 {
+		return "none"
+	}
+	names := make([]string, len(p.Exclude))
+	for i, id := range p.Exclude {
+		names[i] = nameOf(id)
+	}
+	return strings.Join(names, ", ")
+}
+
+// leaveOutSystems ticks the systems a playlist never plays, whatever
+// genres it picks (saved as Exclude; groups like Computer also work there,
+// written by hand).
+func leaveOutSystems(stdscr *gc.Window, files []MenuFile, p *config.Playlist, nameOf func(string) string, save func()) {
+	ids := systemIDsIn(files)
+	on := map[string]bool{}
+	for _, id := range ids {
+		for _, x := range p.Exclude {
+			if strings.EqualFold(x, id) {
+				on[id] = true
+			}
+		}
+	}
+	// Groups and unknown names written in the ini aren't in the list:
+	// they're kept as they are.
+	var kept []string
+	for _, x := range p.Exclude {
+		found := false
+		for _, id := range ids {
+			found = found || strings.EqualFold(x, id)
+		}
+		if !found {
+			kept = append(kept, x)
+		}
+	}
+	tickSystems(stdscr, "Leave out systems", ids, on, func(on map[string]bool) {
+		out := append([]string(nil), kept...)
+		for _, id := range ids {
+			if on[id] {
+				out = append(out, id)
+			}
+		}
+		p.Exclude = out
+		save()
+	})
+}
+
+// systemIDsIn lists the systems that have games in files, in the systems
+// list's order.
+func systemIDsIn(files []MenuFile) []string {
+	seen := map[string]bool{}
+	var names []string
+	byName := map[string]string{}
+	for i := range files {
+		id := files[i].SystemId
+		if !seen[id] {
+			seen[id] = true
+			n := games.DisplayName(id)
+			names = append(names, n)
+			byName[n] = id
+		}
+	}
+	sortSystems(names)
+	ids := make([]string, len(names))
+	for i, n := range names {
+		ids[i] = byName[n]
+	}
+	return ids
 }

@@ -31,8 +31,21 @@ const genresLabel = "[Genres]"
 // [Menu] by applyMenuConfig and the [Genres] screen.
 var genresSystem, genresOrder = "Before", "Game name"
 
+// genresLeftOut is [Menu] GenresExclude: systems left out of [Genres]
+// (lower-case IDs). They still appear everywhere else in the menu.
+var genresLeftOut = map[string]bool{}
+
 // buildGenreTree builds the [Genres] folder from the games.
 func buildGenreTree(files []MenuFile) *gamesdb.Node {
+	if len(genresLeftOut) > 0 {
+		kept := make([]MenuFile, 0, len(files))
+		for i := range files {
+			if !genresLeftOut[strings.ToLower(files[i].SystemId)] {
+				kept = append(kept, files[i])
+			}
+		}
+		files = kept
+	}
 	root := &gamesdb.Node{Name: "Genres", Children: map[string]*gamesdb.Node{}}
 	sysName := map[string]string{}
 	nameOf := func(id string) string {
@@ -118,8 +131,14 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 }
 
 // genresScreen is Options -> Display & Sorting -> [Genres].
-func genresScreen(stdscr *gc.Window, cfg *config.Config) {
+func genresScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 	show := onOffOption("Show [Genres]", cfg.Menu.GenresEntry)
+	// Leave out systems: a tick list, shown as a count here.
+	leaveOut := labelOption{"Leave out systems", []string{""}, 0}
+	leaveOutText := func() {
+		leaveOut.values[0] = fmt.Sprintf("%d  (select to choose)", len(cfg.Menu.GenresExclude))
+	}
+	leaveOutText()
 	where := labelOption{"System names", []string{"Before", "After", "Off"}, 0}
 	where.set(genresSystem)
 	order := labelOption{"Order", []string{"Game name", "System"}, 0}
@@ -130,7 +149,38 @@ func genresScreen(stdscr *gc.Window, cfg *config.Config) {
 			if !show.isOn() {
 				return []*labelOption{&show}
 			}
-			return []*labelOption{&show, &where, &order}
+			return []*labelOption{&show, &where, &order, &leaveOut}
+		},
+		changed: func(o *labelOption) {
+			if o != &leaveOut {
+				return
+			}
+			ids := systemIDsIn(files)
+			on := map[string]bool{}
+			var kept []string // groups written in the ini: kept as they are
+			for _, x := range cfg.Menu.GenresExclude {
+				found := false
+				for _, id := range ids {
+					if strings.EqualFold(x, id) {
+						on[id], found = true, true
+					}
+				}
+				if !found {
+					kept = append(kept, x)
+				}
+			}
+			tickSystems(stdscr, "Leave out of [Genres]", ids, on, func(on map[string]bool) {
+				out := append([]string(nil), kept...)
+				for _, id := range ids {
+					if on[id] {
+						out = append(out, id)
+					}
+				}
+				cfg.Menu.GenresExclude = out
+				genresLeftOut, _ = games.ResolveSystems(out)
+				treeDirty = true // rebuild [Genres] without them
+			})
+			leaveOutText()
 		},
 		preview: func() []string {
 			if !show.isOn() {
@@ -165,6 +215,7 @@ func genresScreen(stdscr *gc.Window, cfg *config.Config) {
 				{"GenresEntry", strconv.FormatBool(cfg.Menu.GenresEntry)},
 				{"GenresSystem", cfg.Menu.GenresSystem},
 				{"GenresOrder", cfg.Menu.GenresOrder},
+				{"GenresExclude", strings.Join(cfg.Menu.GenresExclude, ", ")},
 			})
 		},
 	})

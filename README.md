@@ -156,6 +156,7 @@ Changes are saved to `SAMenu.ini` as you make them.
 A game's genres come from **the folders it's in**, worked out when the games database is built. `SNES/Genres/Fighting/…` makes a game **Fighting**, and many spellings are recognised (`_Fighter`, `[Sports]`, `Shoot 'em Ups`, `Puzzle - Logic` and so on). A folder only counts when its whole name is a genre, so a folder named after a game, like *Street Fighter II*, doesn't. Sub-genres count as their genre too: **Sports/Golf** is also **Sports**.
 
 - **Browse by genre:** `[Genres]` on the systems list shows every game by genre, across all systems. Each game's system can be shown before or after its name, and the games can be ordered by name or by system (Options → Display & Sorting → [Genres]...).
+- **Leave systems out of [Genres]:** in the same settings, so a system you don't want there never shows up in it (it still appears everywhere else).
 - **Check what was found:** `SAMenu.sh -genres` prints the genres in your database, with counts per system.
 - **Your own folder names:** add them in `SAMenu.ini`, under `[Genres]` for folders and `[Genres.Files]` for game names, then rebuild the database:
 
@@ -177,6 +178,7 @@ Make them in **Options → Attract Mode → Playlists**:
 - **Genres for all systems**, and **extra genres for one system** (Per system).
 - **Systems with no picks:** leave them out, or play them as normal.
 - **Skip:** words to never play. Type them with spaces between, like `mahjong pachinko shogi`, and anything with one of those words in its name or folder is skipped. The live count shows how many games that catches.
+- **Leave out systems:** systems this playlist never plays, whatever genres are picked. Handy with genres for all systems: *Fighting from every system, except the computers*.
 - **Attract mode plays:** which playlist is in use, or Normal.
 
 Or pick one for a single run from the command line: `SAMenu.sh -attract -playlist "Fighters Night"`.
@@ -500,6 +502,7 @@ SNES   = Puzzle                           ; extra genres for one system (system 
 Others = Leave out                        ; systems with no picks: Leave out or As normal
 Skip   = *mahjong*, *pachinko*            ; never play games with these in their name or folder
 SNES.Skip = *shogi*                       ; a Skip for one system only
+Exclude = Computer, NES                   ; systems (or groups) never played
 ```
 
 | Key | Does |
@@ -510,6 +513,7 @@ SNES.Skip = *shogi*                       ; a Skip for one system only
 | `Others` | What systems with no picks do: `Leave out` or `As normal` |
 | `Skip` | Patterns for games never to play (`*` wildcards, capitals ignored). Words typed in the menu are saved as `*word*` |
 | *system ID*`.Skip` | A Skip for one system only (INI only) |
+| `Exclude` | Systems or groups this playlist never plays, whatever genres are picked |
 
 </details>
 
@@ -657,6 +661,7 @@ After editing these by hand, save once from Options → Startup so the startup b
 | `GenresEntry` | `true` | Show `[Genres]` on the systems list |
 | `GenresSystem` | `Before` | In `[Genres]`, each game's system: Before, After or Off |
 | `GenresOrder` | `Game name` | In `[Genres]`, the order: Game name, or System |
+| `GenresExclude` | *(empty)* | Systems or groups left out of `[Genres]` |
 
 **[Controls.Menu]** has `Layout = Western` (A confirms) or `Japanese` (B confirms).
 

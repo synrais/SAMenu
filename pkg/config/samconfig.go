@@ -175,6 +175,8 @@ type MenuConfig struct {
 	// and the order of the games (Game name, System).
 	GenresSystem string `ini:"genressystem"`
 	GenresOrder  string `ini:"genresorder"`
+	// Systems (or groups) left out of [Genres], e.g. "Computer, NES".
+	GenresExclude []string `ini:"genresexclude" delim:","`
 	// Hide games with these name tags from the menu (gamesdb.Tags), and
 	// from search too with SearchHidden.
 	HideTags     []string `ini:"hidetags" delim:","`

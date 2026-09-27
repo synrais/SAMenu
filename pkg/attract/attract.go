@@ -536,8 +536,12 @@ func filterSystems(files []gamesdb.FileInfo, cfg *config.Config) []gamesdb.FileI
 		// a system's picked genres, else its normal setup ("As normal") or
 		// nothing ("Leave out").
 		picks, skips := map[string][]string{}, map[string][]string{}
+		left, _ := games.ResolveSystems(pl.Exclude) // the playlist's left-out systems
 		pass("playlist", func(f *gamesdb.FileInfo) bool {
 			sys := strings.ToLower(f.SystemId)
+			if left[sys] {
+				return false
+			}
 			p, ok := picks[sys]
 			if !ok {
 				p = pl.PicksFor(sys)
