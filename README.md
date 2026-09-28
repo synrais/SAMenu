@@ -193,11 +193,7 @@ Press **X** (Space) on the systems screen.
 
 Changes are saved to `SAMenu.ini` as you make them.
 
-The options screens' lists of systems always look the same, whatever your Display & Sorting settings:
-
-- **Database systems, Virtual A-Z Folders, and leaving systems out** (of [Genre Collection] or a playlist) are laid out as the menu is out of the box: by manufacturer A-Z, each by release date, Arcade Cores at the top, shown as `[Nintendo] NES`.
-- **Attract mode systems, a playlist's Per system, and BIOS Skip's Add a system** are under **Arcade**, **Consoles**, **Handhelds**, **Computers** and **Other**, A-Z in each.
-- **Cores** are under the folder each core is in (see [Choosing a core](#choosing-a-core)).
+The options screens' lists of systems always look the same, whatever your Display & Sorting settings: under **Arcade**, **Consoles**, **Handhelds**, **Computers** and **Other**, A-Z in each. That's database systems, attract mode systems, Virtual A-Z Folders, leaving systems out (of [Genre Collection] or a playlist), a playlist's Per system, and BIOS Skip's Add a system. **Cores** is the one exception: it's grouped by the folder each core is in (see [Choosing a core](#choosing-a-core)).
 
 In the lists you tick, each group's heading has its own box: **[x]** all on, **[ ]** none, **[-]** some. Choose it to turn the whole group on, or off when it already is. **All** and **None** do the whole list.
 

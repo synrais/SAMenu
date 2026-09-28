@@ -91,7 +91,7 @@ func attractSettingsScreen(stdscr *gc.Window, cfg *config.Config, sysNames []str
 		},
 		changed: func(o *labelOption) {
 			if o == &systems {
-				tickSystemsByCategory(stdscr, "Attract Mode Systems", ids, attractTicks(cfg, ids), func(on map[string]bool) {
+				tickSystems(stdscr, "Attract Mode Systems", ids, attractTicks(cfg, ids), func(on map[string]bool) {
 					a.Include = nil
 					a.Exclude = unticked(ids, on)
 				})
@@ -235,55 +235,14 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) (added []games
 // -------- System tick list --------
 
 // The options screens' system lists always look the same, whatever the
-// menu's own Display & Sorting settings: either as the menu looks out of
-// the box (tickSystems), or by category (tickSystemsByCategory,
-// categoryGroups).
+// menu's own Display & Sorting settings: under Arcade, Consoles, Handhelds,
+// Computers and Other, A-Z in each (categoryGroups). Cores is the one
+// exception: it's grouped by core folder.
 
-// defaultSortOptions is the systems list sorting as it comes out of the box:
-// by manufacturer A-Z, each by release date, Arcade Cores at the top.
-func defaultSortOptions() games.SortOptions {
-	return games.SortOptions{
-		Group:         "Manufacturer",
-		GroupOrder:    "A-Z",
-		CategoryOrder: strings.Split(categoryPresets[0], ","),
-		Subgroup:      "None",
-		SubgroupOrder: "A-Z",
-		Within:        "Release date",
-		ArcadeFirst:   true,
-	}
-}
-
-// defaultSystemLabel shows a system as the menu does out of the box:
-// "[Nintendo] NES".
-func defaultSystemLabel(name string) string {
-	maker, short := games.SystemLabelParts(name)
-	return "[" + maker + "] " + short
-}
-
-// tickSystems shows a tick list of systems as the menu looks out of the box:
-// under manufacturer headings, A-Z, each by release date, Arcade Cores at
-// the top, shown as "[Nintendo] NES". Changes are handed to save when
-// leaving, only if anything changed.
+// tickSystems shows a tick list of systems under category headings (each
+// with its own box for the whole group), A-Z in each. Changes are handed to
+// save when leaving, only if anything changed.
 func tickSystems(stdscr *gc.Window, title string, ids []string, on map[string]bool, save func(map[string]bool)) {
-	names := namesOf(ids)
-	idOf := map[string]string{}
-	for i, n := range names {
-		idOf[n] = ids[i]
-	}
-	games.SortSystemNamesWith(names, defaultSortOptions())
-	sorted := make([]string, len(names))
-	labels := make([]string, len(names))
-	groups := make([]string, len(names))
-	for i, n := range names {
-		sorted[i], labels[i], groups[i] = idOf[n], defaultSystemLabel(n), games.SystemGroup(n, "Manufacturer")
-	}
-	tickListWith(stdscr, title, sorted, labels, groups, on, save, nil)
-}
-
-// tickSystemsByCategory shows a tick list of systems under Arcade,
-// Consoles, Handhelds, Computers and Other, A-Z in each (see
-// categoryGroups).
-func tickSystemsByCategory(stdscr *gc.Window, title string, ids []string, on map[string]bool, save func(map[string]bool)) {
 	var sorted, labels, groups []string
 	cats, byCat := categoryGroups(ids)
 	for _, cat := range cats {
@@ -542,14 +501,6 @@ func systemIDs(names []string) []string {
 		}
 	}
 	return ids
-}
-
-func namesOf(ids []string) []string {
-	out := make([]string, len(ids))
-	for i, id := range ids {
-		out[i] = games.DisplayName(id)
-	}
-	return out
 }
 
 // idleChoices are the idle times offered in the menu.
