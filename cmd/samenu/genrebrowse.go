@@ -47,18 +47,7 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 		files = kept
 	}
 	root := &gamesdb.Node{Name: "Genres", Children: map[string]*gamesdb.Node{}}
-	sysName := map[string]string{}
-	nameOf := func(id string) string {
-		name, ok := sysName[id]
-		if !ok {
-			name = id
-			if s, err := games.GetSystem(id); err == nil {
-				name = s.Name
-			}
-			sysName[id] = name
-		}
-		return name
-	}
+	nameOf := games.DisplayName
 	// Systems in the systems list's order, for Order: System.
 	var names []string
 	seenSys := map[string]bool{}

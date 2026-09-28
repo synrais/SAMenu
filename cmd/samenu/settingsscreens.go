@@ -221,17 +221,7 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) bool {
 		return false
 	}
 
-	clearScreen(stdscr)
-	button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-		Shortcuts:     menuShortcuts(),
-		Title:         "Rebuild the games database now?",
-		Buttons:       []string{"Select", "Back"},
-		ActionButton:  0,
-		DefaultButton: 0,
-		Width:         60,
-		Height:        6,
-	}, []string{"Rebuild now", "Later"})
-	return err == nil && button == 0 && sel == 0
+	return confirm(stdscr, "Rebuild the games database now?", "Rebuild now", "Later")
 }
 
 // -------- System tick list --------

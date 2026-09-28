@@ -124,29 +124,24 @@ func DrawActionButtons(win *gc.Window, buttons []string, selected int) {
 	if shown > 1 && textWidth+gap*(shown-1) > width-2 {
 		gap = 1
 	}
-	totalWidth := 0
-	for i := range buttons {
-		totalWidth += len(buttonTexts[i])
-		if i < len(buttons)-1 {
-			totalWidth += gap
-		}
+	totalWidth := textWidth
+	if shown > 1 {
+		totalWidth += gap * (shown - 1)
 	}
 
-	// Center the whole row
-	leftMargin := (width - totalWidth) / 2
-	x := leftMargin
-
+	// Center the whole row. A button with no label (a line where pressing
+	// does nothing) isn't shown.
+	x := (width - totalWidth) / 2
 	for i, text := range buttonTexts {
+		if buttons[i] == "" {
+			continue
+		}
 		if i == selected {
 			win.ColorOn(1)
 		}
 		win.MovePrint(height-2, x, text)
 		win.ColorOff(1)
-
-		x += len(text)
-		if i < len(buttonTexts)-1 {
-			x += gap // fixed 3-space gap
-		}
+		x += len(text) + gap
 	}
 
 	win.NoutRefresh()

@@ -38,19 +38,21 @@ var attractActionNames = map[string]string{
 }
 
 // bindingPicker shows a list of actions plus "Restore defaults" and returns
-// the chosen index (len(actions) for defaults), or -1 for Back.
+// the chosen index (len(actions) for defaults), or -1 for Back. The button
+// names what each line does (see actionLabel).
 func bindingPicker(stdscr *gc.Window, title string, items []string, selected int) int {
 	clearScreen(stdscr)
 	items = append(items, "Restore defaults")
 	button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-		Shortcuts:     menuShortcuts(),
-		Title:         title,
-		Buttons:       []string{"Change", "Back"},
-		DefaultButton: 0,
-		ActionButton:  0,
-		Width:         optionsWidth,
-		Height:        len(items) + 4,
-		InitialIndex:  selected,
+		Shortcuts:          menuShortcuts(),
+		Title:              title,
+		Buttons:            []string{"Change", "Back"},
+		DefaultButton:      0,
+		ActionButton:       0,
+		Width:              optionsWidth,
+		Height:             len(items) + 4,
+		InitialIndex:       selected,
+		DynamicActionLabel: lineLabels(items, nil),
 	}, items)
 	if err != nil || button != 0 {
 		return -1
@@ -143,11 +145,7 @@ func gamesMenuControls(stdscr *gc.Window, cfg *config.Config) {
 			curses.SwapConfirmBack = false
 			saveErr(stdscr, config.SaveMenuLayout(cfg), config.SaveMenuControls(cfg))
 		case sel == len(items)-1:
-			if cfg.MenuLayout == "Japanese" {
-				cfg.MenuLayout = "Western"
-			} else {
-				cfg.MenuLayout = "Japanese"
-			}
+			cfg.MenuLayout = nextOf([]string{"Japanese", "Western"}, cfg.MenuLayout)
 			curses.SwapConfirmBack = cfg.MenuLayout == "Japanese"
 			saveErr(stdscr, config.SaveMenuLayout(cfg))
 		default:
@@ -211,12 +209,6 @@ func inputsText(ins []string) string {
 // attractModeControls is Controls -> Attract Mode: which inputs it
 // watches, BIOS skip, the mapping, and what unbound buttons do.
 func attractModeControls(stdscr *gc.Window, cfg *config.Config) {
-	onOff := func(b bool) string {
-		if b {
-			return "On"
-		}
-		return "Off"
-	}
 	switches := []struct {
 		name string
 		on   *bool
@@ -234,9 +226,9 @@ func attractModeControls(stdscr *gc.Window, cfg *config.Config) {
 	for {
 		var rows []row
 		for i, sw := range switches {
-			rows = append(rows, row{fmt.Sprintf("%-20s %s", sw.name+":", onOff(*sw.on)), "switch", i})
+			rows = append(rows, row{fmt.Sprintf("%-20s %s", sw.name+":", onOffText(*sw.on)), "switch", i})
 		}
-		rows = append(rows, row{fmt.Sprintf("%-20s %s", "Sticks:", onOff(cfg.InputDetector.Sticks)), "sticks", 0})
+		rows = append(rows, row{fmt.Sprintf("%-20s %s", "Sticks:", onOffText(cfg.InputDetector.Sticks)), "sticks", 0})
 		if cfg.InputDetector.Sticks {
 			rows = append(rows, row{fmt.Sprintf("%-20s %d ms", "Stick hold:", cfg.InputDetector.StickHoldMs), "hold", 0})
 		}

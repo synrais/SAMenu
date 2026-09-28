@@ -58,7 +58,7 @@ func videoScreen(stdscr *gc.Window, cfg *config.Config) {
 			fmt.Sprintf("%-32s %s", "Accurate seek (MP3 audio):", onOffText(v.Mp3Seek)),
 			fmt.Sprintf("%-32s %s", "Build index (AVI, no index):", onOffText(v.AviIndex)),
 		}
-		sel, ok := optionsList(stdscr, "Video Player", items, selected)
+		sel, ok := optionsListWith(stdscr, "Video Player", items, selected, map[int]string{1: "Play"})
 		if !ok {
 			return
 		}
@@ -76,28 +76,11 @@ func videoScreen(stdscr *gc.Window, cfg *config.Config) {
 			playVideos(stdscr, files, v.Playback == "Random")
 			continue
 		case 2:
-			if v.Playback == "Random" {
-				v.Playback = "In order"
-			} else {
-				v.Playback = "Random"
-			}
+			v.Playback = nextOf([]string{"Random", "In order"}, v.Playback)
 		case 3:
-			lists := video.Playlists()
-			next := 0
-			for i, p := range lists {
-				if p == v.Playlist {
-					next = (i + 1) % len(lists)
-				}
-			}
-			v.Playlist = lists[next]
+			v.Playlist = nextOf(video.Playlists(), v.Playlist)
 		case 4:
-			next := 0
-			for i, n := range videoAttractChoices {
-				if n == v.AttractEvery {
-					next = (i + 1) % len(videoAttractChoices)
-				}
-			}
-			v.AttractEvery = videoAttractChoices[next]
+			v.AttractEvery = nextOf(videoAttractChoices, v.AttractEvery)
 		case 5:
 			v.AutoSync = !v.AutoSync
 		case 6:

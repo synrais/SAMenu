@@ -36,15 +36,11 @@ func coresScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 	for {
 		items := make([]string, len(ids))
 		for i, id := range ids {
-			name := id
-			if s, err := games.GetSystem(id); err == nil {
-				name = s.Name
-			}
 			core := mister.DefaultCore(id) + " (default)"
 			if c, ok := mister.SetCoreFor(cfg, id); ok {
 				core = c
 			}
-			items[i] = fitText(fmt.Sprintf("%-22s %s", name+":", core), optionsWidth-6)
+			items[i] = fmt.Sprintf("%-22s %s", games.DisplayName(id)+":", core)
 		}
 		sel, ok := optionsList(stdscr, "Cores", items, selected)
 		if !ok {
@@ -61,10 +57,7 @@ func coresScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 func chooseCore(stdscr *gc.Window, cfg *config.Config, id string) {
 	def := mister.DefaultCore(id)
 	current, _ := mister.SetCoreFor(cfg, id)
-	name := id
-	if s, err := games.GetSystem(id); err == nil {
-		name = s.Name
-	}
+	name := games.DisplayName(id)
 	found := mister.ScanCores()
 	if len(found) == 0 {
 		message(stdscr, "No core files found on any drive.")
@@ -128,7 +121,11 @@ func chooseCore(stdscr *gc.Window, cfg *config.Config, id string) {
 		if dir != "" {
 			title = dir
 		}
-		sel, ok := optionsList(stdscr, title, items, selected)
+		var labels map[int]string
+		if dir == "" {
+			labels = map[int]string{0: "Select"} // "Default: ..." is a choice
+		}
+		sel, ok := optionsListWith(stdscr, title, items, selected, labels)
 		if !ok {
 			if dir == "" {
 				return

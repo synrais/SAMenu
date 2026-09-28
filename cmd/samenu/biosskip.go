@@ -11,6 +11,7 @@ import (
 
 	"github.com/synrais/SAMenu/pkg/config"
 	"github.com/synrais/SAMenu/pkg/curses"
+	"github.com/synrais/SAMenu/pkg/games"
 	"github.com/synrais/SAMenu/pkg/input"
 	"github.com/synrais/SAMenu/pkg/mister"
 )
@@ -72,13 +73,7 @@ func splitSequence(seq string) []string {
 
 // biosSkipScreen is Options -> Controls -> BIOS Skip.
 func biosSkipScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
-	names := systemNamesByID()
-	nameOf := func(id string) string {
-		if n, ok := names[strings.ToLower(id)]; ok {
-			return n
-		}
-		return id
-	}
+	nameOf := games.DisplayName
 	selected := 0
 	for {
 		ids := make([]string, 0, len(cfg.AutoInput.Sequences))
@@ -153,13 +148,14 @@ func biosSequenceEditor(stdscr *gc.Window, cfg *config.Config, id, name string) 
 		addPress, addWait := len(items), len(items)+1
 		items = append(items, "Add a press...", "Add a wait...")
 		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-			Title:         "BIOS skip: " + name,
-			Buttons:       []string{"Choose", "Back"},
-			ActionButton:  0,
-			DefaultButton: 0,
-			Width:         optionsWidth,
-			Height:        len(items) + 4,
-			InitialIndex:  selected,
+			Title:              "BIOS skip: " + name,
+			Buttons:            []string{"Select", "Back"},
+			ActionButton:       0,
+			DefaultButton:      0,
+			Width:              optionsWidth,
+			Height:             len(items) + 4,
+			InitialIndex:       selected,
+			DynamicActionLabel: lineLabels(items, nil),
 		}, items)
 		if err != nil || button != 0 {
 			break
@@ -179,7 +175,7 @@ func biosSequenceEditor(stdscr *gc.Window, cfg *config.Config, id, name string) 
 				selected = len(steps) + 1
 			}
 		default:
-			if c, ok := optionsList(stdscr, fmt.Sprintf("Step %d: %s", sel+1, stepText(steps[sel])), []string{"Remove it", "Keep it"}, 1); ok && c == 0 {
+			if confirm(stdscr, fmt.Sprintf("Step %d: %s", sel+1, stepText(steps[sel])), "Remove it", "Keep it") {
 				steps = append(steps[:sel], steps[sel+1:]...)
 				save()
 			}

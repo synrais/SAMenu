@@ -21,15 +21,6 @@ import (
 // separate layer over its normal setup (see config/playlists.go). Choose
 // the one in use (Normal = the usual setup), create, edit, rename, delete.
 
-// systemNamesByID maps lower-case system IDs to display names.
-func systemNamesByID() map[string]string {
-	out := map[string]string{}
-	for _, s := range games.Systems {
-		out[strings.ToLower(s.Id)] = s.Name
-	}
-	return out
-}
-
 func playlistsScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 	selected := 0
 	for {
@@ -39,11 +30,13 @@ func playlistsScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 			active = p.Name
 		}
 		items := []string{fmt.Sprintf("%-22s %s", "Attract mode plays:", active)}
+		labels := map[int]string{}
 		for _, n := range names {
+			labels[len(items)] = "Edit"
 			items = append(items, "Edit: "+n)
 		}
 		items = append(items, "New playlist...")
-		sel, ok := optionsList(stdscr, "Playlists", items, selected)
+		sel, ok := optionsListWith(stdscr, "Playlists", items, selected, labels)
 		if !ok {
 			return
 		}
@@ -51,14 +44,7 @@ func playlistsScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 		switch {
 		case sel == 0:
 			// Cycle through Normal and the playlists.
-			choices := append([]string{"Normal"}, names...)
-			next := 0
-			for i, c := range choices {
-				if strings.EqualFold(c, active) {
-					next = (i + 1) % len(choices)
-				}
-			}
-			if err := config.SetActivePlaylist(cfg, choices[next]); err != nil {
+			if err := config.SetActivePlaylist(cfg, nextOf(append([]string{"Normal"}, names...), active)); err != nil {
 				message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
 			}
 		case sel == len(items)-1:
@@ -266,13 +252,7 @@ func tickGenres(stdscr *gc.Window, cfg *config.Config, title string, files []Men
 }
 
 func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *config.Playlist) {
-	sysNames := systemNamesByID()
-	nameOf := func(id string) string {
-		if n, ok := sysNames[strings.ToLower(id)]; ok {
-			return n
-		}
-		return id
-	}
+	nameOf := games.DisplayName
 	save := func() {
 		if err := config.SavePlaylist(cfg, p); err != nil {
 			message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
@@ -294,7 +274,8 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 			"Rename...",
 			"Delete this playlist",
 		}
-		sel, ok := optionsList(stdscr, "Playlist: "+p.Name, items, selected)
+		// Plays is only information: no button, pressing it does nothing.
+		sel, ok := optionsListWith(stdscr, "Playlist: "+p.Name, items, selected, map[int]string{0: "", 7: "Delete"})
 		if !ok {
 			return
 		}
@@ -308,11 +289,7 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 		case 2:
 			perSystemGenres(stdscr, cfg, files, p, nameOf, save)
 		case 3:
-			if p.Others == config.OthersAsNormal {
-				p.Others = config.OthersLeaveOut
-			} else {
-				p.Others = config.OthersAsNormal
-			}
+			p.Others = nextOf([]string{config.OthersAsNormal, config.OthersLeaveOut}, p.Others)
 			save()
 		case 4:
 			words, kept := skipWords(p.Skip)
@@ -350,7 +327,7 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 				_ = config.SetActivePlaylist(cfg, name)
 			}
 		case 7:
-			if s, ok := optionsList(stdscr, "Delete "+p.Name+"?", []string{"Delete it", "Keep it"}, 1); ok && s == 0 {
+			if confirm(stdscr, "Delete "+p.Name+"?", "Delete it", "Keep it") {
 				if err := config.DeletePlaylist(cfg, p.Name); err != nil {
 					message(stdscr, fmt.Sprintf("Couldn't delete: %v", err))
 				}

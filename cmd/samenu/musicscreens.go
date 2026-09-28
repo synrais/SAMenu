@@ -16,13 +16,6 @@ import (
 // Music Player and Startup
 // -------------------------
 
-func onOffText(b bool) string {
-	if b {
-		return "On"
-	}
-	return "Off"
-}
-
 // playlistName shows a playlist setting ("" is the music folder itself).
 func playlistName(p string) string {
 	if p == "" {
@@ -38,9 +31,9 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 	selected := 0
 	for {
 		playing := music.Running()
-		toggle := "Start music"
+		toggle, verb := "Start music", "Start"
 		if playing {
-			toggle = "Stop music"
+			toggle, verb = "Stop music", "Stop"
 		}
 		items := []string{
 			fmt.Sprintf("%-22s (%s)", toggle, music.Status()),
@@ -49,7 +42,7 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 			fmt.Sprintf("%-22s %s", "Playlist:", playlistName(m.Playlist)),
 			fmt.Sprintf("%-22s %s", "Pause during games:", onOffText(m.PauseInGames)),
 		}
-		sel, ok := optionsList(stdscr, "Music Player", items, selected)
+		sel, ok := optionsListWith(stdscr, "Music Player", items, selected, map[int]string{0: verb, 1: "Next"})
 		if !ok {
 			return
 		}
@@ -71,20 +64,9 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 			}
 			continue
 		case 2:
-			if m.Playback == "Random" {
-				m.Playback = "In order"
-			} else {
-				m.Playback = "Random"
-			}
+			m.Playback = nextOf([]string{"Random", "In order"}, m.Playback)
 		case 3:
-			lists := music.Playlists()
-			next := 0
-			for i, p := range lists {
-				if p == m.Playlist {
-					next = (i + 1) % len(lists)
-				}
-			}
-			m.Playlist = lists[next]
+			m.Playlist = nextOf(music.Playlists(), m.Playlist)
 		case 4:
 			m.PauseInGames = !m.PauseInGames
 		}

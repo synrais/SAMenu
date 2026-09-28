@@ -11,9 +11,15 @@ import (
 )
 
 // DisplayName is a system's name, or its ID if it isn't a known system.
+// Any spelling of the ID works ("snes", "SNES"), as the ini's do.
 func DisplayName(id string) string {
 	if system, ok := Systems[id]; ok {
 		return system.Name
+	}
+	for _, system := range Systems {
+		if strings.EqualFold(system.Id, id) {
+			return system.Name
+		}
 	}
 	return id
 }

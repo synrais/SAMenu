@@ -150,7 +150,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 				"Rebuild games database...",
 				"Database systems...",
 				"Cores...",
-			}, func(i int) ([]MenuFile, bool, error) {
+			}, nil, func(i int) ([]MenuFile, bool, error) {
 				if i == 2 {
 					coresScreen(stdscr, cfg, sysIds)
 					return nil, false, nil
@@ -158,9 +158,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 				if i == 0 {
 					// A quick double press on entering Options lands here, so
 					// ask first, with Cancel highlighted.
-					c, ok := optionsList(stdscr, "Rebuild the games database?", []string{
-						"Rebuild (can take a few minutes)", "Cancel"}, 1)
-					if !ok || c != 0 {
+					if !confirm(stdscr, "Rebuild the games database?", "Rebuild (can take a few minutes)", "Cancel") {
 						return nil, false, nil
 					}
 				}
@@ -176,7 +174,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 				"Attract mode settings...",
 				"Playlists...",
 				"Detector & list settings...",
-			}, func(i int) ([]MenuFile, bool, error) {
+			}, map[int]string{0: "Start"}, func(i int) ([]MenuFile, bool, error) {
 				switch i {
 				case 0:
 					if err := startAttractInBackground(); err != nil {
@@ -204,7 +202,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 				"[Genre Collection]...",
 				"[Favourites]...",
 				"[History]...",
-			}, func(i int) ([]MenuFile, bool, error) {
+			}, nil, func(i int) ([]MenuFile, bool, error) {
 				switch i {
 				case 0:
 					menuListOptions(stdscr, sysIds, cfg)
@@ -242,11 +240,11 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 
 // optionsGroup shows one group of options until Back, or until an entry
 // says to leave the options altogether.
-func optionsGroup(stdscr *gc.Window, title string, items []string,
+func optionsGroup(stdscr *gc.Window, title string, items []string, labels map[int]string,
 	run func(i int) ([]MenuFile, bool, error)) ([]MenuFile, bool, error) {
 	selected := 0
 	for {
-		sel, ok := optionsList(stdscr, title, items, selected)
+		sel, ok := optionsListWith(stdscr, title, items, selected, labels)
 		if !ok {
 			return nil, false, nil
 		}
@@ -259,18 +257,25 @@ func optionsGroup(stdscr *gc.Window, title string, items []string,
 }
 
 // optionsList shows a list of options and returns the one chosen, or false
-// for Back.
+// for Back. The button names what each line does (see actionLabel).
 func optionsList(stdscr *gc.Window, title string, items []string, selected int) (int, bool) {
+	return optionsListWith(stdscr, title, items, selected, nil)
+}
+
+// optionsListWith is optionsList with the button labels of lines that
+// do something of their own (see lineLabels).
+func optionsListWith(stdscr *gc.Window, title string, items []string, selected int, labels map[int]string) (int, bool) {
 	clearScreen(stdscr)
 	button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-		Shortcuts:     menuShortcuts(),
-		Title:         title,
-		Buttons:       []string{"Select", "Back"},
-		DefaultButton: 0,
-		ActionButton:  0,
-		Width:         60,
-		Height:        len(items) + 4,
-		InitialIndex:  selected,
+		Shortcuts:          menuShortcuts(),
+		Title:              title,
+		Buttons:            []string{"Select", "Back"},
+		DefaultButton:      0,
+		ActionButton:       0,
+		Width:              60,
+		Height:             len(items) + 4,
+		InitialIndex:       selected,
+		DynamicActionLabel: lineLabels(items, labels),
 	}, items)
 	clearScreen(stdscr)
 	if err != nil || button != 0 || sel < 0 || sel >= len(items) {
