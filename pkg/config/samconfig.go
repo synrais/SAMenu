@@ -107,6 +107,9 @@ type StaticDetectorConfig struct {
 	// travel around the screen count as moving. 1 = any change at all.
 	MinSpread  int     `ini:"minspread"`
 	SpreadTime float64 `ini:"spreadtime"`
+	// DominantColour: -watch also shows the screen's most common colour.
+	// Off by default: working it out means sorting every frame's samples.
+	DominantColour bool `ini:"dominantcolour"`
 }
 
 // MusicConfig is [Music]: the background music player.

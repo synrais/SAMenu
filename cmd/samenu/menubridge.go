@@ -33,8 +33,11 @@ import (
 // nothing.
 
 var (
-	hubOnce     sync.Once
-	hubStarted  atomic.Bool
+	hubOnce    sync.Once
+	hubStarted atomic.Bool
+	// menuShown: only the menu uses pad buttons mapped to its actions, not
+	// attract mode or the command line options, which share its settings.
+	menuShown   bool
 	inputGate   = &input.Gate{}
 	exclusive   atomic.Bool
 	exclusiveCh = make(chan input.Event, 64)
@@ -88,6 +91,7 @@ func releaseInputs() {
 // on).
 func syncInputs() {
 	switch {
+	case !menuShown:
 	case padBindingsInUse():
 		startInputs()
 	case hubStarted.Load() && !exclusive.Load():

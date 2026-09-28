@@ -5,7 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -27,13 +29,33 @@ const mainLog = "/tmp/MiSTer.log"
 
 // MainRunning reports whether the MiSTer main program is running.
 func MainRunning() bool {
+	// The one found last time, if it's still there: one small read instead
+	// of every process's.
+	if pid := mainPid.Load(); pid > 0 {
+		if isMain(fmt.Sprintf("/proc/%d/comm", pid)) {
+			return true
+		}
+		mainPid.Store(0)
+	}
 	dirs, _ := filepath.Glob("/proc/[0-9]*/comm")
 	for _, f := range dirs {
-		if b, err := os.ReadFile(f); err == nil && strings.TrimSpace(string(b)) == "MiSTer" {
+		if isMain(f) {
+			if pid, err := strconv.ParseInt(filepath.Base(filepath.Dir(f)), 10, 64); err == nil {
+				mainPid.Store(pid)
+			}
 			return true
 		}
 	}
 	return false
+}
+
+// mainPid is the MiSTer main program's process, as last found (0: none).
+var mainPid atomic.Int64
+
+// isMain reports whether a /proc/<pid>/comm is the MiSTer main program's.
+func isMain(comm string) bool {
+	b, err := os.ReadFile(comm)
+	return err == nil && strings.TrimSpace(string(b)) == "MiSTer"
 }
 
 // RestartMain starts the MiSTer main program in its own session and waits

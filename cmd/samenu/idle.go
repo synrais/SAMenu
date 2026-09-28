@@ -26,7 +26,7 @@ import (
 // in games, or both (IdleWhere). After you choose to play one of attract
 // mode's games, this is what starts it again, with the same history.
 // It stays quiet while attract mode runs and while a video plays, its
-// input detectors paused.
+// input detectors paused, and never starts attract mode over a script.
 
 const idlePidFile = "/tmp/SAMenu_idle.pid"
 
@@ -102,15 +102,18 @@ func runIdleWatcher() {
 			counts := cfg.Startup.IdleWhere == config.IdleBoth ||
 				(cfg.Startup.IdleWhere == config.IdleMenu && inMenu) ||
 				(cfg.Startup.IdleWhere == config.IdleGames && !inMenu)
-			_, busy := mister.Busy() // e.g. update_all: never start over a script
-			if running || busy || video.Playing() || !counts {
-				lastInput = now // not counting: attract mode, a script, a video, or not a place set in Where
+			if running || video.Playing() || !counts {
+				lastInput = now // not counting: attract mode, a video, or not a place set in Where
 				gate.Pause()
 				continue
 			}
 			gate.Resume()
 			if now.Sub(lastInput) >= time.Duration(cfg.Startup.IdleTime)*time.Minute {
-				_ = startAttractInBackground()
+				// Never over a script (e.g. update_all): the timer starts
+				// again. Looked for only now, as it reads every process.
+				if _, busy := mister.Busy(); !busy {
+					_ = startAttractInBackground()
+				}
 				lastInput = now
 			}
 		}

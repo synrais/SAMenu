@@ -30,6 +30,12 @@ func watchDetector() {
 	fmt.Print("\033[?25l\033[2J") // hide cursor, clear once
 	restore := func() { fmt.Print("\033[?25h\n") }
 
+	// The detector only writes its status while this is watching
+	// (attract.WatchFile, touched every half second).
+	started := time.Now()
+	var touched time.Time
+	defer os.Remove(attract.WatchFile)
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 
@@ -55,6 +61,12 @@ func watchDetector() {
 	}()
 
 	for {
+		if time.Since(touched) >= 500*time.Millisecond {
+			touched = time.Now()
+			if err := os.Chtimes(attract.WatchFile, touched, touched); err != nil {
+				_ = os.WriteFile(attract.WatchFile, nil, 0644)
+			}
+		}
 		screen := ""
 		// Re-check SAMenu.ini at most every 2 seconds.
 		if time.Since(iniChecked) > 2*time.Second {
@@ -75,6 +87,10 @@ func watchDetector() {
 			info, err := os.Stat(attract.StatusFile)
 			switch {
 			case err != nil:
+				screen = "Attract mode is running; waiting for its static detector..."
+			case time.Since(info.ModTime()) > staleAfter && time.Since(started) < staleAfter:
+				// Written before this started watching: the detector picks
+				// that up within a second.
 				screen = "Attract mode is running; waiting for its static detector..."
 			case time.Since(info.ModTime()) > staleAfter:
 				data, _ := os.ReadFile(attract.StatusFile)

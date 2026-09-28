@@ -628,6 +628,7 @@ Exclude = Computer, NES                   ; systems (or groups) never played
 | `WriteBlackList` / `WriteStaticList` | `true` | Add the game to the list |
 | `MinSpread` | `8` | Grid cells (out of 192) that must change to count as moving |
 | `SpreadTime` | `5` | …within this many seconds |
+| `DominantColour` | `false` | `-watch` also shows the screen's most common colour (off saves the detector some work every frame) |
 
 Override any of these per system or group, for example `[StaticDetector.PSX]`. A system's own section wins over a group's.
 
@@ -832,7 +833,7 @@ For example, `Include = Nintendo, Sega` with `Exclude = Gameboy2P` plays every N
 | `/tmp/SAMenu_attract.log` | Attract mode's log, when started with `-bg` |
 | `/tmp/SAMenu_attract.status` | What attract mode is playing |
 | `/tmp/SAMenu_attract_history.json` | What attract mode has played this session (`[History]` > Attract) |
-| `/tmp/SAMenu_detector` | The static detector's live status |
+| `/tmp/SAMenu_detector` | The static detector's live status, written only while `-watch` runs |
 
 To use a different settings file, set the environment variable `SAMENU_CONFIG`.
 

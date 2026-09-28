@@ -160,7 +160,9 @@ type StaticEvent struct {
 	Width        int
 	Height       int
 	// The colours as numbers: turned into text (hex and a name) only when
-	// the status is written, not on every frame.
+	// the status is written, not on every frame. The dominant colour is
+	// only worked out with DominantColour on, while -watch is showing it.
+	HasDom           bool
 	DomR, DomG, DomB int
 	AvgR, AvgG, AvgB int
 	System, Title    string
@@ -168,11 +170,19 @@ type StaticEvent struct {
 	Spread           int     // cells that changed within SpreadTime
 }
 
-// StatusFile always holds the detector's latest state (updated 10 times a
-// second, in RAM), so it can be watched from a PC, e.g.
+// StatusFile holds the detector's latest state (updated 10 times a second,
+// in RAM) while "SAMenu -watch" shows it, e.g. from a PC:
 //
-//	ssh -t root@mister "watch -n 0.1 cat /tmp/SAMenu_detector"
+//	ssh -t root@mister "/media/fat/Scripts/SAMenu.sh -watch"
 const StatusFile = config.TempFolder + "/SAMenu_detector"
+
+// WatchFile is kept fresh by -watch while it runs. Only then is StatusFile
+// written: nobody reads it otherwise.
+const WatchFile = config.TempFolder + "/SAMenu_detector.watching"
+
+// watchFresh is how recently WatchFile must have been touched to count as
+// being watched (-watch touches it every half second).
+const watchFresh = 2 * time.Second
 
 // statusEvery is how often StatusFile is rewritten.
 const statusEvery = 100 * time.Millisecond
@@ -189,6 +199,11 @@ type Detector struct {
 	latest     StaticEvent
 	lastAction string // e.g. "Added to SNES blacklist, skipping"
 	lastStatus time.Time
+
+	// Whether -watch is running (see WatchFile), checked at most twice a
+	// second. Only the detector's own loop uses these.
+	watched      bool
+	watchChecked time.Time
 
 	skip chan int // generation of the game to skip
 
@@ -248,8 +263,24 @@ func (d *Detector) SetGame(systemID, title string) int {
 // Compare it with SetGame's result to ignore stale requests.
 func (d *Detector) Skip() <-chan int { return d.skip }
 
-// writeStatus refreshes StatusFile, at most every statusEvery.
+// watching reports whether -watch is showing the status (WatchFile is
+// fresh), looking at most twice a second.
+func (d *Detector) watching() bool {
+	if time.Since(d.watchChecked) < 500*time.Millisecond {
+		return d.watched
+	}
+	d.watchChecked = time.Now()
+	info, err := os.Stat(WatchFile)
+	d.watched = err == nil && time.Since(info.ModTime()) < watchFresh
+	return d.watched
+}
+
+// writeStatus refreshes StatusFile, at most every statusEvery, while
+// -watch is showing it.
 func (d *Detector) writeStatus(cfg config.StaticDetectorConfig, force bool) {
+	if !d.watching() {
+		return
+	}
 	d.mu.Lock()
 	if !force && time.Since(d.lastStatus) < statusEvery {
 		d.mu.Unlock()
@@ -273,9 +304,14 @@ func (d *Detector) writeStatus(cfg config.StaticDetectorConfig, force bool) {
 		fmt.Fprintf(&b, "Changed:       %.2f%% of screen this frame\n", ev.ChangedPct)
 		fmt.Fprintf(&b, "Stuck pixels:  %d/%d\n", ev.StuckPixels, ev.Samples)
 		fmt.Fprintf(&b, "Resolution:    %dx%d\n", ev.Width, ev.Height)
-		fmt.Fprintf(&b, "Colours:       dominant %s %s, average %s %s\n",
-			rgbToHex(ev.DomR, ev.DomG, ev.DomB), nearestColorName(ev.DomR, ev.DomG, ev.DomB),
-			rgbToHex(ev.AvgR, ev.AvgG, ev.AvgB), nearestColorName(ev.AvgR, ev.AvgG, ev.AvgB))
+		if ev.HasDom {
+			fmt.Fprintf(&b, "Colours:       dominant %s %s, average %s %s\n",
+				rgbToHex(ev.DomR, ev.DomG, ev.DomB), nearestColorName(ev.DomR, ev.DomG, ev.DomB),
+				rgbToHex(ev.AvgR, ev.AvgG, ev.AvgB), nearestColorName(ev.AvgR, ev.AvgG, ev.AvgB))
+		} else {
+			fmt.Fprintf(&b, "Colours:       average %s %s\n",
+				rgbToHex(ev.AvgR, ev.AvgG, ev.AvgB), nearestColorName(ev.AvgR, ev.AvgG, ev.AvgB))
+		}
 	}
 	if action != "" {
 		fmt.Fprintf(&b, "\nLast action:   %s\n", action)
@@ -419,27 +455,33 @@ func (d *Detector) run() {
 		avgG := sumG / len(currRGB)
 		avgB := sumB / len(currRGB)
 
-		// Dominant colour: sort a copy, so currRGB keeps screen order for
-		// the frame-to-frame comparison below.
-		sorted = append(sorted[:0], currRGB...)
-		sort.Sort(rgbList(sorted)) // a typed sort: much cheaper than sort.Slice
-		bestCount := 0
-		currCount := 1
-		bestVal := sorted[0]
-		for i := 1; i <= len(sorted); i++ {
-			if i < len(sorted) && sorted[i] == sorted[i-1] {
-				currCount++
-			} else {
-				if currCount > bestCount {
-					bestCount = currCount
-					bestVal = sorted[i-1]
+		// Dominant colour, only for the status (DominantColour, while
+		// -watch shows it): nothing else uses it, and sorting every frame's
+		// samples costs. Sort a copy, so currRGB keeps screen order for the
+		// frame-to-frame comparison below.
+		hasDom := currCfg.DominantColour && d.watching()
+		var domR, domG, domB int
+		if hasDom {
+			sorted = append(sorted[:0], currRGB...)
+			sort.Sort(rgbList(sorted)) // a typed sort: much cheaper than sort.Slice
+			bestCount := 0
+			currCount := 1
+			bestVal := sorted[0]
+			for i := 1; i <= len(sorted); i++ {
+				if i < len(sorted) && sorted[i] == sorted[i-1] {
+					currCount++
+				} else {
+					if currCount > bestCount {
+						bestCount = currCount
+						bestVal = sorted[i-1]
+					}
+					currCount = 1
 				}
-				currCount = 1
 			}
+			domR = int((bestVal >> 16) & 0xFF)
+			domG = int((bestVal >> 8) & 0xFF)
+			domB = int(bestVal & 0xFF)
 		}
-		domR := int((bestVal >> 16) & 0xFF)
-		domG := int((bestVal >> 8) & 0xFF)
-		domB := int(bestVal & 0xFF)
 
 		// Compare the same screen positions: this frame against the last
 		// frame that used the same grid offset, marking each grid cell
@@ -511,6 +553,7 @@ func (d *Detector) run() {
 			Samples:      len(currRGB),
 			Width:        res.Width,
 			Height:       res.Height,
+			HasDom:       hasDom,
 			DomR:         domR, DomG: domG, DomB: domB,
 			AvgR: avgR, AvgG: avgG, AvgB: avgB,
 			System: systemID, Title: title,
@@ -621,6 +664,7 @@ func applyDetectorOverride(c *config.StaticDetectorConfig, keys map[string]strin
 	flag("writeblacklist", &c.WriteBlackList)
 	flag("skipstatic", &c.SkipStatic)
 	flag("writestaticlist", &c.WriteStaticList)
+	flag("dominantcolour", &c.DominantColour)
 }
 
 // wouldText describes what attract mode would do, for view-only reports.

@@ -820,7 +820,7 @@ func main() {
 	}
 	applyMenuConfig(cfg.Menu)
 	applyAZConfig(cfg.Menu)
-	setMenuControls(cfg.MenuControls) // starts the input detectors if a pad button is mapped
+	setMenuControls(cfg.MenuControls)
 	curses.SwapConfirmBack = cfg.MenuLayout == "Japanese"
 
 	if *attractPtr {
@@ -855,6 +855,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer gc.End()
+	menuShown = true
+	syncInputs() // the input detectors, if a pad button is mapped
 	if err := fitToScreen(stdscr); err != nil {
 		gc.End()
 		fmt.Println(err)
