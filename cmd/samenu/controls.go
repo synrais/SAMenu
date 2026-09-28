@@ -74,8 +74,8 @@ func menuShortcutsFor(acts ...string) map[gc.Key]string {
 	return out
 }
 
-// setMenuControls puts the menu's actions in use, the letter jumps for
-// every list.
+// setMenuControls puts the menu's actions in use: the letter jumps for
+// every list, and the input detectors for pad buttons.
 func setMenuControls(m map[string][]string) {
 	menuControls = m
 	curses.LetterKeys = map[gc.Key]int{}
@@ -87,6 +87,7 @@ func setMenuControls(m map[string][]string) {
 		}
 		curses.LetterKeys[actionKey(act)] = dir
 	}
+	syncInputs() // pad buttons need the input detectors
 }
 
 // menuShortcuts are the systems list's shortcuts: Search and Options.

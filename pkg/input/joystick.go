@@ -518,7 +518,7 @@ func (d *jsDevice) sendAxis(out chan<- Event, i int, side int8, ignored string) 
 
 // watchJoysticks polls every controller and follows them being plugged
 // in and out.
-func watchJoysticks(out chan<- Event) {
+func watchJoysticks(out chan<- Event, gate *Gate) {
 	sdl := loadSDLDB()
 	devices := map[string]*jsDevice{}
 	ignored := map[string]bool{} // SAMenu's own virtual pad
@@ -582,6 +582,15 @@ func watchJoysticks(out chan<- Event) {
 	defer tick.Stop()
 
 	for range tick.C {
+		if wake := gate.waiting(); wake != nil {
+			for p, d := range devices {
+				unregister(p)
+				logf("- %s (%s)", d.name, filepath.Base(p))
+				delete(devices, p)
+			}
+			<-wake
+			lastScan = time.Time{} // find them again now
+		}
 		scan := time.Since(lastScan) > jsRescanEvery
 		select {
 		case <-hotplug:

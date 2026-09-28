@@ -27,19 +27,28 @@ import (
 // mapped pad buttons into menu actions; while the Input test or a "press a
 // button" capture is open (takeInputs), it hands everything to that screen
 // instead.
+//
+// The detectors only run while something needs them: a mapped pad button,
+// or one of those screens. Otherwise they're paused (inputGate), reading
+// nothing.
 
 var (
 	hubOnce     sync.Once
+	hubStarted  atomic.Bool
+	inputGate   = &input.Gate{}
 	exclusive   atomic.Bool
 	exclusiveCh = make(chan input.Event, 64)
 )
 
-// startInputs starts the input detectors and the hub (once; they keep
-// running).
+// startInputs starts the input detectors and the hub, or resumes them.
 func startInputs() {
+	if inputGate.Resume() {
+		time.Sleep(300 * time.Millisecond) // let the devices be found again
+	}
 	hubOnce.Do(func() {
+		hubStarted.Store(true)
 		stickRules()
-		raw := input.Start(input.Options{Keyboard: true, Mouse: true, Joystick: true, Quiet: true})
+		raw := input.Start(input.Options{Keyboard: true, Mouse: true, Joystick: true, Quiet: true, Gate: inputGate})
 		time.Sleep(300 * time.Millisecond) // let the devices be found
 		go func() {
 			for ev := range raw {
@@ -67,7 +76,24 @@ func takeInputs() <-chan input.Event {
 	return exclusiveCh
 }
 
-func releaseInputs() { exclusive.Store(false) }
+// releaseInputs ends takeInputs, pausing the detectors unless a mapped
+// pad button still needs them.
+func releaseInputs() {
+	exclusive.Store(false)
+	syncInputs()
+}
+
+// syncInputs runs the detectors if a menu action is mapped to a pad
+// button, and pauses them if not (while a screen has taken them, they stay
+// on).
+func syncInputs() {
+	switch {
+	case padBindingsInUse():
+		startInputs()
+	case hubStarted.Load() && !exclusive.Load():
+		inputGate.Pause()
+	}
+}
 
 // actionKey is the key a mapped pad button hands the menu for an action
 // (not a real key: only lists that know the action react to it).

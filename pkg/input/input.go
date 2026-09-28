@@ -47,6 +47,51 @@ type Options struct {
 	Mouse    bool
 	Joystick bool
 	Quiet    bool // don't print devices being found or lost
+	// Gate, if set, can pause these detectors (see Gate).
+	Gate *Gate
+}
+
+// Gate pauses a set of detectors: paused, they let go of every device and
+// read nothing until resumed, then find the devices again.
+type Gate struct {
+	mu     sync.Mutex
+	paused bool
+	wake   chan struct{} // closed on Resume
+}
+
+// Pause stops the detectors reading (within a couple of seconds).
+func (g *Gate) Pause() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.paused {
+		g.paused, g.wake = true, make(chan struct{})
+	}
+}
+
+// Resume starts them again, reporting whether they were paused.
+func (g *Gate) Resume() bool {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.paused {
+		return false
+	}
+	g.paused = false
+	close(g.wake)
+	return true
+}
+
+// waiting is what a paused detector waits on, or nil when it isn't paused
+// (or has no gate).
+func (g *Gate) waiting() <-chan struct{} {
+	if g == nil {
+		return nil
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.paused {
+		return g.wake
+	}
+	return nil
 }
 
 // Start runs the enabled detectors in the background and returns the
@@ -56,10 +101,10 @@ func Start(opts Options) <-chan Event {
 	quiet = opts.Quiet
 	out := make(chan Event, 64)
 	if opts.Keyboard || opts.Mouse {
-		go watchHID(out, opts.Keyboard, opts.Mouse)
+		go watchHID(out, opts.Keyboard, opts.Mouse, opts.Gate)
 	}
 	if opts.Joystick {
-		go watchJoysticks(out)
+		go watchJoysticks(out, opts.Gate)
 	}
 	return out
 }

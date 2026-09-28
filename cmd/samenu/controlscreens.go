@@ -104,9 +104,6 @@ func gamesMenuControls(stdscr *gc.Window, cfg *config.Config) {
 				cfg.MenuControls[act] = toggleInput(cfg.MenuControls[act], in)
 				setMenuControls(cfg.MenuControls)
 				saveErr(stdscr, config.SaveMenuControls(cfg))
-				if padBindingsInUse() {
-					startInputs() // controller buttons for the menu
-				}
 			}))
 		}
 		// Layout below the actions, so a quick double press on entering

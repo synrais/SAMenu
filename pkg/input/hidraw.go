@@ -279,7 +279,7 @@ func hidName(sysDir string) string {
 
 // watchHID finds keyboards and mice among the hidraw devices, follows
 // them being plugged in and out, and sends their presses to out.
-func watchHID(out chan<- Event, wantKbd, wantMouse bool) {
+func watchHID(out chan<- Event, wantKbd, wantMouse bool, gate *Gate) {
 	devices := map[string]*hidDevice{} // /dev path -> open device
 	skipped := map[string]bool{}       // /dev path -> not a keyboard/mouse
 
@@ -358,6 +358,14 @@ func watchHID(out chan<- Event, wantKbd, wantMouse bool) {
 	evBuf := make([]byte, 4096)
 
 	for {
+		if wake := gate.waiting(); wake != nil {
+			for _, d := range devices {
+				closeDev(d)
+			}
+			<-wake
+			rescan()
+			lastScan = time.Now()
+		}
 		var pfds []unix.PollFd
 		var order []*hidDevice
 		for _, d := range devices {

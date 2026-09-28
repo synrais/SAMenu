@@ -820,10 +820,7 @@ func main() {
 	}
 	applyMenuConfig(cfg.Menu)
 	applyAZConfig(cfg.Menu)
-	setMenuControls(cfg.MenuControls)
-	if padBindingsInUse() {
-		startInputs() // controller buttons mapped to menu actions
-	}
+	setMenuControls(cfg.MenuControls) // starts the input detectors if a pad button is mapped
 	curses.SwapConfirmBack = cfg.MenuLayout == "Japanese"
 
 	if *attractPtr {

@@ -247,3 +247,31 @@ func TestAxisHints(t *testing.T) {
 		t.Errorf("String: %s", ev)
 	}
 }
+
+func TestGate(t *testing.T) {
+	var none *Gate
+	if none.waiting() != nil {
+		t.Fatal("no gate should never wait")
+	}
+	g := &Gate{}
+	if g.waiting() != nil || g.Resume() {
+		t.Fatal("a new gate is running")
+	}
+	g.Pause()
+	g.Pause()
+	wake := g.waiting()
+	if wake == nil {
+		t.Fatal("paused, but not waiting")
+	}
+	if !g.Resume() || g.Resume() {
+		t.Fatal("Resume should report the pause once")
+	}
+	select {
+	case <-wake:
+	default:
+		t.Fatal("Resume didn't wake the waiter")
+	}
+	if g.waiting() != nil {
+		t.Fatal("resumed, but still waiting")
+	}
+}
