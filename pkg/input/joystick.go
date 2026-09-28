@@ -439,7 +439,7 @@ func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
 	if d.have {
 		for i, down := range btn {
 			if down && !d.btn[i] {
-				send(out, Event{Kind: "joystick", Device: d.name, Path: d.path, Name: d.layout.btnNames[i]})
+				send(out, Event{Kind: "joystick", Device: d.name, Path: d.path, Name: d.layout.btnNames[i], Hint: faceButtonHints[d.layout.btnNames[i]]})
 			} else if !down && d.btn[i] && debug {
 				send(out, Event{Kind: "joystick", Device: d.name, Path: d.path, Name: d.layout.btnNames[i], Up: true})
 			}
@@ -600,6 +600,16 @@ func watchJoysticks(out chan<- Event) {
 			}
 		}
 	}
+}
+
+// faceButtonHints say what each face button is called elsewhere. SDL's
+// names (used in SAMenu.ini) are Xbox style, by position; MiSTer's are
+// SNES style (its A is on the right, where SDL has b).
+var faceButtonHints = map[string]string{
+	"a": "MiSTer B · Xbox A · PS Cross",
+	"b": "MiSTer A · Xbox B · PS Circle",
+	"x": "MiSTer Y · Xbox X · PS Square",
+	"y": "MiSTer X · Xbox Y · PS Triangle",
 }
 
 // axisHint describes an axis name in plain words: "lefty-" is "left stick

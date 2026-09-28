@@ -376,13 +376,15 @@ func scrollFit(text string, width int, t time.Duration) string {
 	if width <= 0 {
 		return ""
 	}
-	if len(text) <= width {
-		return text + strings.Repeat(" ", width-len(text))
+	// Counted in characters, so a "·" (two bytes) takes one column.
+	r := []rune(text)
+	if len(r) <= width {
+		return text + strings.Repeat(" ", width-len(r))
 	}
-	loop := text + "   "
+	loop := append(r, []rune("   ")...)
 	offset := 0
 	if t > time.Second {
 		offset = int((t-time.Second)/(200*time.Millisecond)) % len(loop)
 	}
-	return (loop + loop)[offset : offset+width]
+	return string(append(loop, loop...)[offset : offset+width])
 }
