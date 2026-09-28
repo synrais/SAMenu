@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"syscall"
@@ -82,6 +83,12 @@ func StartAttractMode(cfg *config.Config, files []gamesdb.FileInfo) error {
 	if len(filtered) == 0 {
 		return fmt.Errorf("no games available after filtering")
 	}
+	// From here on only the games it can play are used: let the whole
+	// database go (its own copy, kept for the menu's use), and hand the
+	// memory back once.
+	files = nil
+	gamesdb.ForgetCache()
+	debug.FreeOSMemory()
 
 	// inline playtime parser
 	minTime, maxTime := 40, 40

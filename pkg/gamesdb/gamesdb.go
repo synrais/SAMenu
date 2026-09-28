@@ -79,6 +79,13 @@ var cacheLoaded bool
 // It must not be changed in place.
 func Load() ([]FileInfo, error) { return loadAll() }
 
+// ForgetCache lets go of the kept copy, for a program that has taken what
+// it needs from it (attract mode keeps only the games it can play). A
+// later Load reads the SD card again.
+func ForgetCache() {
+	cachedFiles, cacheLoaded = nil, false
+}
+
 func loadAll() ([]FileInfo, error) {
 	// If we've already loaded the Gob file once, return the cached version instantly.
 	if cacheLoaded {
