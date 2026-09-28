@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	gc "github.com/rthornton128/goncurses"
@@ -324,7 +325,7 @@ func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title s
 				treeDirty = false
 				sortSystems(st.sysIds) // settings may have changed
 				// [Genres]: its names and order follow the settings too.
-				st.genreTree = buildGenreTree(menuHide.Without(st.files))
+				st.refreshGenres(stdscr)
 			}
 		case 5:
 			if top {
@@ -359,9 +360,40 @@ func uniqueGames(node *gamesdb.Node) int {
 	return len(seen)
 }
 
+// refreshGenres rebuilds [Genre Collection] if a setting it's built from
+// has changed. Building it goes through every game, which takes a moment
+// on the MiSTer, so leaving the options without changing them skips it.
+func (st *menuState) refreshGenres(stdscr *gc.Window) {
+	if genreSettings() == st.genresFor {
+		return
+	}
+	_ = withSpinner(func() error {
+		st.genreTree, st.genresFor = buildGenreTree(menuHide.Without(st.files)), genreSettings()
+		return nil
+	}, func(spin string) {
+		_ = curses.InfoBox(stdscr, "", "Loading... "+spin, false, false)
+	})
+	clearScreen(stdscr)
+}
+
+// genreSettings sums up everything [Genre Collection] is built from, apart
+// from the games themselves: its own settings, the hidden tags and the
+// systems' order (for Order: System).
+func genreSettings() string {
+	var leftOut []string
+	for id, out := range genresLeftOut {
+		if out {
+			leftOut = append(leftOut, id)
+		}
+	}
+	sort.Strings(leftOut)
+	return fmt.Sprintf("%s|%s|%v|%v|%v", genresSystem, genresOrder, leftOut, menuHide, systemSortOptions())
+}
+
 // menuState is the games database as the menu shows it.
 type menuState struct {
 	genreTree *gamesdb.Node // the virtual [Genres] folder
+	genresFor string        // the settings genreTree was built with (genreSettings)
 	files     []MenuFile
 	tree      *gamesdb.Node
 	sysIds    []string // system display names, sorted
@@ -386,7 +418,7 @@ func (st *menuState) build(stdscr *gc.Window, files []MenuFile) {
 func (st *menuState) load(files []MenuFile) {
 	st.files = files
 	st.tree = buildTree(menuHide.Without(files)) // minus [Menu] HideTags
-	st.genreTree = buildGenreTree(menuHide.Without(files))
+	st.genreTree, st.genresFor = buildGenreTree(menuHide.Without(files)), genreSettings()
 	currentTree = st.tree
 	tree := st.tree
 	gameCount = func(system string) int { return uniqueGames(tree.Children[system]) }

@@ -151,6 +151,15 @@ func hinted(lower string, hints []string) bool {
 	return false
 }
 
+// String is the filter's tag names, e.g. "Beta, Hack".
+func (f TagFilter) String() string {
+	names := make([]string, len(f.tags))
+	for i, t := range f.tags {
+		names[i] = t.Name
+	}
+	return strings.Join(names, ", ")
+}
+
 // Without returns files minus the ones whose names have the filter's tags.
 func (f TagFilter) Without(files []FileInfo) []FileInfo {
 	if f.Empty() {
