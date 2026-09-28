@@ -50,6 +50,21 @@ func lineLabels(items []string, labels map[int]string) func(int) string {
 	}
 }
 
+// landingButton is the button highlighted when a list shows again: its
+// action button (Open, Pick...), or after backing out of something, its Back
+// button, so Back can be pressed again to carry on climbing out. A list
+// without one, like the main menu (Exit), always lands on its action.
+func landingButton(buttons []string, action int, cameBack bool) int {
+	if cameBack {
+		for i, b := range buttons {
+			if b == "Back" {
+				return i
+			}
+		}
+	}
+	return action
+}
+
 // confirm asks a yes or no question, starting on no (the safe choice), and
 // reports whether yes was chosen.
 func confirm(stdscr *gc.Window, question, yes, no string) bool {

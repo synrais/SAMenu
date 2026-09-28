@@ -290,13 +290,13 @@ func optionsListWith(stdscr *gc.Window, title string, items []string, selected i
 
 // browseNode shows one folder of the games tree. It reports whether the user
 // left it with Back, so the parent can keep Back highlighted and the user can
-// hammer Back to climb out of deep folders.
+// hammer Back to climb out of deep folders (see landingButton).
 type browseEntry = gamesdb.Entry
 
 func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth int) (bool, error) {
 	const actionButton, backButton = 2, 3
 	currentIndex := 0
-	defaultButton := actionButton
+	cameBack := false // the last folder opened here was backed out of
 	first := true
 	pickedRandom := false // the random entry was the last one used
 	for {
@@ -374,7 +374,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				Title:         title,
 				Buttons:       buttons,
 				ActionButton:  actionButton,
-				DefaultButton: defaultButton,
+				DefaultButton: landingButton(buttons, actionButton, cameBack),
 				SnapToAction:  true,
 				ShowTotal:     true,
 				Width:         systemListWidth,
@@ -403,7 +403,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				navHere(depth, browseKey(entries[i]), i)
 			}
 		}
-		defaultButton = actionButton
+		cameBack = false
 
 		// Fav / Remove on the highlighted game.
 		if favButton != "" && button == len(buttons)-1 {
@@ -443,9 +443,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				if err != nil {
 					return false, err
 				}
-				if wentBack {
-					defaultButton = backButton
-				}
+				cameBack = wentBack
 			} else {
 				file := entries[selected].File
 				sys, err := games.GetSystem(file.SystemId)

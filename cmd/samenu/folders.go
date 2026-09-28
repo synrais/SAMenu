@@ -216,12 +216,10 @@ func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title s
 		if !top {
 			buttons = []string{"PgUp", "PgDn", "", "Back"}
 		}
-		// After backing out of something, the back button (Exit at the top)
-		// stays highlighted, as in the game folders, to carry on backing out.
-		highlight := 2
-		if cameBack {
-			highlight = len(buttons) - 1
-		}
+		// After backing out of something, Back stays highlighted in a folder,
+		// to carry on backing out; the top screen lands on Open (see
+		// landingButton).
+		highlight := landingButton(buttons, 2, cameBack)
 		cameBack = false
 		clearScreen(stdscr)
 		button, selected, err := 2, autoOpen, error(nil)
