@@ -173,7 +173,7 @@ Results always read **`[System] Title.ext`**, with the systems A-Z and then the 
 
 ### Choosing a core
 
-**Options → Game Database → Cores** picks which core each system uses (Arcade isn't listed: its MRA files name their own cores). Choose a system, and browse the core files on every drive, like the games menu: the `_` folders at the root of the SD card and USB drives (except `_Arcade`) and their `_` subfolders, at any depth, merged across drives, with each file tagged by its drive, like `SNES_20260905.rbf (USB0)`. **Default** puts the system's own core back, and the core in use is marked `*`.
+**Options → Game Database → Cores** picks which core each system uses (Arcade isn't listed: its MRA files name their own cores). The systems are listed under the folder their core is in: `_Console`, `_Computer` and `_Other` first, then any other folder in use, like `_Unstable` or one on a USB drive, with the systems A-Z in each (always, whatever the menu's own sorting). Choose a system, and browse the core files on every drive, like the games menu: the `_` folders at the root of the SD card and USB drives (except `_Arcade`) and their `_` subfolders, at any depth, merged across drives, with each file tagged by its drive, like `SNES_20260905.rbf (USB0)`. **Default** puts the system's own core back, and the core in use is marked `*`.
 
 The exact file is saved, so that build is the one that loads. It's stored as a `set_core` line in `[Systems]`, which you can also write by hand. For one launch only, use `-launch <file> -core <core>`, which wins over `set_core`.
 

@@ -246,15 +246,12 @@ func optionsList(stdscr *gc.Window, title string, items []string, selected int) 
 // Tree Navigation
 // -------------------------
 
-// browseNode shows one folder of the games tree. It reports whether the user
-// left it with Back, so the parent can keep Back highlighted and the user can
-// hammer Back to climb out of deep folders (see landingButton).
+// browseNode shows one folder of the games tree, until Back.
 type browseEntry = gamesdb.Entry
 
-func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth int) (bool, error) {
+func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth int) error {
 	const actionButton, backButton = 2, 3
 	currentIndex := 0
-	cameBack := false // the last folder opened here was backed out of
 	first := true
 	pickedRandom := false // the random entry was the last one used
 	for {
@@ -332,7 +329,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				Title:         title,
 				Buttons:       buttons,
 				ActionButton:  actionButton,
-				DefaultButton: landingButton(buttons, actionButton, cameBack),
+				DefaultButton: actionButton,
 				SnapToAction:  true,
 				ShowTotal:     true,
 				Width:         systemListWidth,
@@ -351,7 +348,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 			}, items)
 		}
 		if err != nil {
-			return false, err
+			return err
 		}
 
 		// Keep our place in this list (Back reports no selection).
@@ -362,7 +359,6 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				navHere(depth, browseKey(entries[i]), i)
 			}
 		}
-		cameBack = false
 
 		// Fav / Remove on the highlighted game.
 		if favButton != "" && button == len(buttons)-1 {
@@ -376,7 +372,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 					favouritesNode = node
 					if len(node.Files) == 0 {
 						clearScreen(stdscr)
-						return true, nil
+						return nil
 					}
 				}
 			}
@@ -389,7 +385,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 			if selected >= 0 && selected < r {
 				if err := pickRandomGame(stdscr, cfg, nodeFiles(node)); err != nil {
 					savePosition()
-					return false, err
+					return err
 				}
 				continue
 			}
@@ -398,24 +394,23 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				continue
 			}
 			if e := entries[selected]; e.File == nil {
-				wentBack, err := browseNode(cfg, stdscr, folderNode(node, e), depth+1)
+				err := browseNode(cfg, stdscr, folderNode(node, e), depth+1)
 				if err != nil {
-					return false, err
+					return err
 				}
-				cameBack = wentBack
 			} else {
 				file := entries[selected].File
 				sys, err := games.GetSystem(file.SystemId)
 				if err == nil && mister.LaunchGame(cfg, *sys, file.Path) == nil {
 					recordHistory(cfg, originalGame(*file))
 					savePosition()
-					return false, errGameLaunched
+					return errGameLaunched
 				}
 				clearScreen(stdscr)
 			}
 		case backButton:
 			clearScreen(stdscr)
-			return true, nil
+			return nil
 		}
 	}
 }

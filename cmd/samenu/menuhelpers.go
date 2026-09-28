@@ -21,29 +21,31 @@ import (
 //	action   "Next track"        its own verb (Start, Play, Delete...)
 //	info     "Plays: ..."        no button, pressing does nothing
 //	restore  "Restore defaults"  Restore
+//	heading  "_Console"          can't be highlighted: it names the lines below
 //
 // Lines are found by what they are, not their place in the list, so a line
 // can be added anywhere without renumbering the others.
 
 type menuLine struct {
-	text  string
-	label string      // the button: what pressing does ("" = nothing)
-	press func() bool // true leaves the screen; nil for information
+	text    string
+	label   string      // the button: what pressing does ("" = nothing)
+	press   func() bool // true leaves the screen; nil for information
+	heading bool        // a heading: the highlight skips it
 }
 
 // opens is a line that opens another screen (or makes a choice).
 func opens(text string, press func()) menuLine {
-	return menuLine{text, "Select", stay(press)}
+	return menuLine{text: text, label: "Select", press: stay(press)}
 }
 
 // setting is a line showing a setting ("Name: value"), changed by pressing.
 func setting(text string, press func()) menuLine {
-	return menuLine{text, "Change", stay(press)}
+	return menuLine{text: text, label: "Change", press: stay(press)}
 }
 
 // action is a line that does something straight away, named by label.
 func action(label, text string, press func()) menuLine {
-	return menuLine{text, label, stay(press)}
+	return menuLine{text: text, label: label, press: stay(press)}
 }
 
 // info is a line that only shows something: no button. It can still be
@@ -52,9 +54,14 @@ func info(text string) menuLine {
 	return menuLine{text: text}
 }
 
+// heading names the group of lines below it; it can't be highlighted.
+func heading(text string) menuLine {
+	return menuLine{text: text, heading: true}
+}
+
 // restoreDefaults is a screen's "Restore defaults" line.
 func restoreDefaults(press func()) menuLine {
-	return menuLine{"Restore defaults", "Restore", stay(press)}
+	return menuLine{text: "Restore defaults", label: "Restore", press: stay(press)}
 }
 
 // leaves makes pressing a line leave the screen when press says so, e.g.
@@ -84,11 +91,10 @@ type menuScreen struct {
 
 // run shows the screen until Back, or until a line leaves it. The lines
 // are made again after every press, so they show the current values.
-// Backing out of a screen opened here lands on Back, to carry on backing
-// out; moving to another line goes back to the line's button.
+// It always lands on the line's button (Select, Change...), also after
+// backing out of a screen opened here: B backs out from anywhere.
 func (m *menuScreen) run(stdscr *gc.Window) {
 	buttons := []string{"Select", "Back"}
-	cameBack := false
 	pressed := "" // the name of the line last pressed
 	for {
 		lines := m.lines()
@@ -109,8 +115,12 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 			}
 		}
 		items := make([]string, len(lines))
+		headers := map[int]bool{}
 		for i, l := range lines {
 			items[i] = l.text
+			if l.heading {
+				headers[i] = true
+			}
 		}
 		if m.selected >= len(lines) {
 			m.selected = len(lines) - 1
@@ -128,12 +138,13 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 			Shortcuts:     menuShortcuts(),
 			Title:         title,
 			Buttons:       buttons,
-			DefaultButton: landingButton(buttons, 0, cameBack),
+			DefaultButton: 0,
 			ActionButton:  0,
 			SnapToAction:  true,
 			Width:         width,
 			Height:        len(items) + 4,
 			InitialIndex:  m.selected,
+			Headers:       headers,
 			DynamicActionLabel: func(i int) string {
 				if i >= 0 && i < len(lines) {
 					return lines[i].label
@@ -150,7 +161,6 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 		if press := lines[sel].press; press != nil && press() {
 			return
 		}
-		cameBack = curses.ClosedByBack()
 	}
 }
 
@@ -166,23 +176,6 @@ func lineName(text string) string {
 // -------------------------
 // Shared helpers
 // -------------------------
-
-// landingButton is the button highlighted when a list shows again: its
-// action button (Open, Pick...), or after backing out of something, its Back
-// button, so Back can be pressed again to carry on climbing out. A list
-// without one, like the main menu (Exit), always lands on its action.
-// Backing out stays on Back, going forward stays on the action, throughout
-// the menus.
-func landingButton(buttons []string, action int, cameBack bool) int {
-	if cameBack {
-		for i, b := range buttons {
-			if b == "Back" {
-				return i
-			}
-		}
-	}
-	return action
-}
 
 // confirm asks a yes or no question, starting on no (the safe choice), and
 // reports whether yes was chosen.

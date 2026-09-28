@@ -20,6 +20,11 @@ import (
 // Options -> Game Database -> Cores: pick which core each system uses, from
 // the core files on the SD card, saved as [Systems] set_core lines.
 
+// The list always has the same layout, whatever the menu's own settings:
+// each system under the folder its core (.rbf) is in, _Console, _Computer
+// and _Other first, then any other folders A-Z (a core picked from
+// _Unstable, a folder of your own, a USB drive), and the systems A-Z inside
+// each. A system moves when its core is changed to one in another folder.
 func coresScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 	// Not Arcade: its MRA files name their own cores.
 	var ids []string
@@ -32,18 +37,74 @@ func coresScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 		message(stdscr, "No systems in the games database yet.")
 		return
 	}
+	sort.Slice(ids, func(i, j int) bool {
+		return strings.ToLower(games.DisplayName(ids[i])) < strings.ToLower(games.DisplayName(ids[j]))
+	})
 	(&menuScreen{title: "Cores", lines: func() []menuLine {
-		lines := make([]menuLine, len(ids))
-		for i, id := range ids {
-			id := id
+		// Each system's core now, by folder.
+		type row struct{ id, core string }
+		byFolder := map[string][]row{}
+		for _, id := range ids {
 			core := mister.DefaultCore(id) + " (default)"
+			folder := coreFolder(mister.DefaultCore(id))
 			if c, ok := mister.SetCoreFor(cfg, id); ok {
-				core = c
+				core, folder = c, coreFolder(c)
 			}
-			lines[i] = setting(fmt.Sprintf("%-22s %s", games.DisplayName(id)+":", core), func() { chooseCore(stdscr, cfg, id) })
+			byFolder[folder] = append(byFolder[folder], row{id, core})
+		}
+		folders := make([]string, 0, len(byFolder))
+		for f := range byFolder {
+			folders = append(folders, f)
+		}
+		sort.Slice(folders, func(i, j int) bool {
+			ri, rj := coreFolderRank(folders[i]), coreFolderRank(folders[j])
+			if ri != rj {
+				return ri < rj
+			}
+			return strings.ToLower(folders[i]) < strings.ToLower(folders[j])
+		})
+		var lines []menuLine
+		for _, f := range folders {
+			lines = append(lines, heading(f))
+			for _, r := range byFolder[f] {
+				r := r
+				lines = append(lines, setting(fmt.Sprintf("  %-22s %s", games.DisplayName(r.id)+":", r.core), func() { chooseCore(stdscr, cfg, r.id) }))
+			}
 		}
 		return lines
 	}}).run(stdscr)
+}
+
+// coreFolder is the folder a core is in, as the Cores screen heads it:
+// "_Console" for "_Console/NES", "USB0 _Cores" for "../usb0/_Cores/X", and
+// "SD card" for a core in the SD card's root.
+func coreFolder(core string) string {
+	parts := strings.Split(strings.Trim(core, "/"), "/")
+	if len(parts) >= 3 && parts[0] == ".." {
+		return strings.ToUpper(parts[1]) + " " + parts[2]
+	}
+	if len(parts) < 2 {
+		return "SD card"
+	}
+	return parts[0]
+}
+
+// coreFolderRank orders the Cores screen's folders: MiSTer's own core
+// folders first, then others on the SD card, its root, then other drives.
+func coreFolderRank(folder string) int {
+	switch {
+	case strings.EqualFold(folder, "_Console"):
+		return 0
+	case strings.EqualFold(folder, "_Computer"):
+		return 1
+	case strings.EqualFold(folder, "_Other"):
+		return 2
+	case folder == "SD card":
+		return 4
+	case strings.Contains(folder, " "):
+		return 5 // another drive
+	}
+	return 3
 }
 
 // chooseCore browses the core files on every drive, like the games menu:

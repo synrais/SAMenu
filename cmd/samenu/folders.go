@@ -137,7 +137,6 @@ func isArcade(name string) bool {
 // errors, and whether the games database was rebuilt (so the caller can
 // start over with the new systems).
 func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title string, names []string, top bool) error {
-	cameBack := false // the last thing opened here was backed out of
 	current := ""
 	depth := 0
 	if !top {
@@ -221,11 +220,7 @@ func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title s
 		if !top {
 			buttons = []string{"PgUp", "PgDn", "", "Back"}
 		}
-		// After backing out of something, Back stays highlighted in a folder,
-		// to carry on backing out; the top screen lands on Open (see
-		// landingButton).
-		highlight := landingButton(buttons, 2, cameBack)
-		cameBack = false
+		highlight := 2 // Open: menus always land on the action (B backs out)
 		clearScreen(stdscr)
 		button, selected, err := 2, autoOpen, error(nil)
 		if autoOpen < 0 {
@@ -276,19 +271,15 @@ func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title s
 				if e.favs {
 					node = buildFavouritesNode(cfg)
 				}
-				back, err := browseNode(cfg, stdscr, node, depth+1)
-				if err != nil {
+				if err := browseNode(cfg, stdscr, node, depth+1); err != nil {
 					return err
 				}
-				cameBack = back
 				continue
 			}
 			if e.genres {
-				back, err := browseNode(cfg, stdscr, st.genreTree, depth+1)
-				if err != nil {
+				if err := browseNode(cfg, stdscr, st.genreTree, depth+1); err != nil {
 					return err
 				}
-				cameBack = back
 				continue
 			}
 			if e.random {
@@ -302,14 +293,11 @@ func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title s
 				if err := systemsScreen(cfg, stdscr, st, groupTitle(e.group), e.names, false); err != nil {
 					return err
 				}
-				cameBack = true // a group folder only returns on Back
 				continue
 			}
-			back, err := browseNode(cfg, stdscr, st.tree.Children[e.system], depth+1)
-			if err != nil {
+			if err := browseNode(cfg, stdscr, st.tree.Children[e.system], depth+1); err != nil {
 				return err
 			}
-			cameBack = back
 		case 3:
 			if top {
 				if err := searchWindow(cfg, stdscr); err != nil {
