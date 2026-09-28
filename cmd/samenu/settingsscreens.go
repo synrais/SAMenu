@@ -191,8 +191,8 @@ func detectorSettingsScreen(stdscr *gc.Window, cfg *config.Config) {
 // -------- Database systems --------
 
 // databaseSystemsScreen ticks which systems go in the games database. It
-// reports whether the user asked to rebuild the database now.
-func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) bool {
+// reports the systems ticked on (to scan) and off (lower-case IDs, to drop).
+func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) (added []games.System, removed map[string]bool) {
 	var names []string
 	for _, s := range games.Systems {
 		names = append(names, s.Name)
@@ -206,7 +206,7 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) bool {
 		on[id] = !exc[strings.ToLower(id)]
 	}
 
-	changed := false
+	removed = map[string]bool{}
 	tickSystems(stdscr, "Games Database Systems", ids, on, func(on map[string]bool) {
 		cfg.Database.Exclude = unticked(ids, on)
 		if err := config.SaveValues(cfg.Path, "Database", [][2]string{
@@ -215,15 +215,20 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) bool {
 			message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
 			return
 		}
-		changed = true
+		// What changed, against what the database was built with.
+		for _, id := range ids {
+			was := !exc[strings.ToLower(id)]
+			switch {
+			case on[id] && !was:
+				if s, err := games.GetSystem(id); err == nil {
+					added = append(added, *s)
+				}
+			case !on[id] && was:
+				removed[strings.ToLower(id)] = true
+			}
+		}
 	})
-	if !changed {
-		return false
-	}
-
-	// Starts on Rebuild now: the systems were just changed to rebuild them.
-	c, ok := optionsList(stdscr, "Rebuild the games database now?", []string{"Rebuild now", "Later"}, 0)
-	return ok && c == 0
+	return added, removed
 }
 
 // -------- System tick list --------

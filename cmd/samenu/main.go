@@ -56,7 +56,24 @@ func loadMenuDb() ([]MenuFile, error) { return gamesdb.Load() }
 // Index Generation
 // -------------------------
 
+// generateIndexWindow rebuilds the games database, showing its progress.
 func generateIndexWindow(cfg *config.Config, stdscr *gc.Window) ([]MenuFile, error) {
+	return indexWindow(stdscr, func(update func(gamesdb.IndexStatus)) error {
+		return gamesdb.NewNamesIndex(cfg, games.AllSystems(), update)
+	})
+}
+
+// updateSystemsWindow adds and removes systems in the games database (see
+// gamesdb.UpdateSystems), with the same progress as a rebuild.
+func updateSystemsWindow(cfg *config.Config, stdscr *gc.Window, added []games.System, removed map[string]bool) ([]MenuFile, error) {
+	return indexWindow(stdscr, func(update func(gamesdb.IndexStatus)) error {
+		return gamesdb.UpdateSystems(cfg, added, removed, update)
+	})
+}
+
+// indexWindow runs a database build, showing its progress bar, then loads
+// the new database.
+func indexWindow(stdscr *gc.Window, build func(update func(gamesdb.IndexStatus)) error) ([]MenuFile, error) {
 	clearScreen(stdscr)
 
 	win, err := curses.NewWindow(stdscr, 4, 75, "", -1)
@@ -89,12 +106,11 @@ func generateIndexWindow(cfg *config.Config, stdscr *gc.Window) ([]MenuFile, err
 	var progress gamesdb.IndexStatus
 
 	err = withSpinner(func() error {
-		err := gamesdb.NewNamesIndex(cfg, games.AllSystems(), func(is gamesdb.IndexStatus) {
+		return build(func(is gamesdb.IndexStatus) {
 			mu.Lock()
 			progress = is
 			mu.Unlock()
 		})
-		return err
 	}, func(spin string) {
 		mu.Lock()
 		p := progress
@@ -108,6 +124,9 @@ func generateIndexWindow(cfg *config.Config, stdscr *gc.Window) ([]MenuFile, err
 		win.MovePrint(1, countCol, countText)
 
 		sysText := fmt.Sprintf("Indexing %s...", games.DisplayName(p.SystemId))
+		if p.Doing != "" {
+			sysText = p.Doing
+		}
 		if maxSysWidth := countCol - 10; len(sysText) > maxSysWidth {
 			sysText = sysText[:maxSysWidth]
 		}
@@ -156,7 +175,15 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 					return confirm(stdscr, "Rebuild the games database?", "Rebuild (can take a few minutes)", "Cancel") && rebuild()
 				}),
 				opens("Database systems...", nil).leaves(func() bool {
-					return databaseSystemsScreen(stdscr, cfg) && rebuild()
+					// Ticked on or off: just those systems are added or
+					// removed, straight away (no full rebuild).
+					added, removed := databaseSystemsScreen(stdscr, cfg)
+					if len(added) == 0 && len(removed) == 0 {
+						return false
+					}
+					newFiles, err = updateSystemsWindow(cfg, stdscr, added, removed)
+					leave = true
+					return true
 				}),
 				opens("Cores...", func() { coresScreen(stdscr, cfg, sysIds) }),
 			),

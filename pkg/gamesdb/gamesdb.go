@@ -41,7 +41,8 @@ type IndexStatus struct {
 	Step     int
 	SystemId string // while Waiting: a message to show instead
 	Files    int
-	Waiting  bool // another build is running; this one waits for it
+	Waiting  bool   // another build is running; this one waits for it
+	Doing    string // instead of "Indexing <system>", e.g. "Saving..."
 }
 
 type SearchResult struct {
@@ -188,38 +189,11 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 		if excluded[strings.ToLower(sys.Id)] {
 			continue
 		}
-
-		sysPaths := games.GetSystemPaths(cfg, []games.System{sys})
-		for _, sp := range sysPaths {
-			pathFiles, err := games.GetFiles(sys.Id, sp.Path)
-			if err != nil {
-				return fmt.Errorf("error getting files: %v", err)
-			}
-
-			for _, fullPath := range pathFiles {
-				base := filepath.Base(fullPath)
-				ext := strings.TrimPrefix(filepath.Ext(base), ".")
-				name := strings.TrimSuffix(base, filepath.Ext(base))
-
-				menuPath := menuPathFor(sys, sp.Path, fullPath)
-
-				file := FileInfo{
-					SystemId: sys.Id,
-					Name:     name,
-					Ext:      ext,
-					Path:     fullPath,
-					MenuPath: menuPath,
-				}
-				if rules.Excludes(file) {
-					continue
-				}
-				if strings.EqualFold(ext, "mra") {
-					file.Rotation = ReadRotation(fullPath)
-				}
-				file.Genres = GenresFor(cfg, menuPath, base)
-				allFiles = append(allFiles, file)
-			}
+		files, err := scanSystem(cfg, sys, rules)
+		if err != nil {
+			return err
 		}
+		allFiles = append(allFiles, files...)
 		status.Files = len(allFiles)
 	}
 
@@ -235,6 +209,104 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 	cachedFiles = allFiles
 	cacheLoaded = true
 
+	return nil
+}
+
+// scanSystem finds one system's games in all its folders, as the database
+// holds them.
+func scanSystem(cfg *config.Config, sys games.System, rules RuleSet) ([]FileInfo, error) {
+	var out []FileInfo
+	for _, sp := range games.GetSystemPaths(cfg, []games.System{sys}) {
+		pathFiles, err := games.GetFiles(sys.Id, sp.Path)
+		if err != nil {
+			return nil, fmt.Errorf("error getting files: %v", err)
+		}
+		for _, fullPath := range pathFiles {
+			base := filepath.Base(fullPath)
+			ext := strings.TrimPrefix(filepath.Ext(base), ".")
+			name := strings.TrimSuffix(base, filepath.Ext(base))
+			menuPath := menuPathFor(sys, sp.Path, fullPath)
+			file := FileInfo{
+				SystemId: sys.Id,
+				Name:     name,
+				Ext:      ext,
+				Path:     fullPath,
+				MenuPath: menuPath,
+			}
+			if rules.Excludes(file) {
+				continue
+			}
+			if strings.EqualFold(ext, "mra") {
+				file.Rotation = ReadRotation(fullPath)
+			}
+			file.Genres = GenresFor(cfg, menuPath, base)
+			out = append(out, file)
+		}
+	}
+	return out, nil
+}
+
+// UpdateSystems changes the database for systems ticked on or off in
+// [Database] Exclude, without a full rebuild: the removed systems' games are
+// dropped (no scanning at all), and only the added systems are scanned. The
+// other systems' games stay as they were (a full rebuild picks up games
+// copied in or deleted since). Games stay in the systems list's order, as a
+// full build has them.
+func UpdateSystems(cfg *config.Config, added []games.System, removed map[string]bool, update func(IndexStatus)) error {
+	unlock, _ := lockBuild(func() {
+		update(IndexStatus{Waiting: true, SystemId: "Waiting for another database build to finish..."})
+	})
+	defer unlock()
+
+	status := IndexStatus{Total: len(added) + 2, Step: 1, Doing: "Removing systems..."}
+	update(status)
+	cacheLoaded = false // what's on the SD card now, in case another build changed it
+	current, err := loadAll()
+	if err != nil {
+		return err
+	}
+	rules := NewRuleSet(cfg.DatabaseRules)
+
+	bySystem := map[string][]FileInfo{} // lower-case system ID -> games
+	for _, f := range current {
+		id := strings.ToLower(f.SystemId)
+		if !removed[id] {
+			bySystem[id] = append(bySystem[id], f)
+		}
+	}
+	status.Doing = ""
+	for _, sys := range added {
+		status.SystemId = sys.Id
+		status.Step++
+		update(status)
+		files, err := scanSystem(cfg, sys, rules)
+		if err != nil {
+			return err
+		}
+		FillRotations(files)
+		bySystem[strings.ToLower(sys.Id)] = files
+		status.Files += len(files)
+	}
+
+	status.Step++
+	status.Doing = "Saving..."
+	update(status)
+	var all []FileInfo
+	for _, sys := range games.AllSystems() {
+		id := strings.ToLower(sys.Id)
+		all = append(all, bySystem[id]...)
+		delete(bySystem, id)
+	}
+	for _, f := range current { // any left: systems not in the list, kept as they were
+		if files, ok := bySystem[strings.ToLower(f.SystemId)]; ok {
+			all = append(all, files...)
+			delete(bySystem, strings.ToLower(f.SystemId))
+		}
+	}
+	if err := saveAll(all); err != nil {
+		return err
+	}
+	cachedFiles, cacheLoaded = all, true
 	return nil
 }
 

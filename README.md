@@ -88,6 +88,8 @@ The first time SAMenu opens, it **builds its games database** by scanning your g
 
 Rebuild the database whenever you add or remove games: **Options → Game Database → Rebuild games database**, or `SAMenu.sh -rebuild` over SSH. Only one build runs at a time, and your old database stays usable until the new one's complete.
 
+Ticking systems on or off in **Options → Game Database → Database systems** doesn't need a full rebuild: when you leave the screen, the systems you ticked off are dropped straight away, and only the ones you ticked on are scanned. The other systems stay as they were, so rebuild if you've also added or removed games elsewhere.
+
 ---
 
 ## Using the menu
@@ -181,7 +183,7 @@ Press **X** (Space) on the systems screen.
 
 | Section | What's in it |
 |:--|:--|
-| **Game Database** | Rebuild the database (it asks first), choose which systems it includes, and which core each system uses |
+| **Game Database** | Rebuild the database (it asks first), choose which systems it includes (added or removed straight away, without a full rebuild), and which core each system uses |
 | **Attract Mode** | Start attract mode, its settings, attract playlists, and the detector and list settings |
 | **Display & Sorting** | Menu list options (labels, text size, remember position), menu list sorting, game list sorting (including hidden tags), Virtual A-Z Folders, [Pick Random Game], [Genre Collection], [Favourites] and [History] |
 | **Controls** | **Games Menu** (Menu Layout and the menu's mapping), **Attract Mode** (which inputs it watches, sticks, its mapping, and what other buttons do), **BIOS Skip** (when it runs, and each system's sequence) and the **Input test** |
