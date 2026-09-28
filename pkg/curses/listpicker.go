@@ -18,7 +18,7 @@ type ListPickerOpts struct {
 	Width              int
 	Height             int
 	DynamicActionLabel func(selectedItem int) string
-	InitialIndex       int  // 🔹 where to start highlight
+	InitialIndex       int  // the line highlighted first
 	SnapToAction       bool // Up/Down/PgUp/PgDn move the highlight back to the action button
 	// Shortcuts maps extra keys to buttons by label (e.g. esc -> "Back").
 	// A shortcut acts as if that button were pressed, keeping the current
@@ -49,7 +49,7 @@ type ListPickerOpts struct {
 var scrollMemory = map[string]int{}
 
 func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, int, error) {
-	// Apply InitialIndex safely
+	// Start on InitialIndex (the first line if it's out of range).
 	selectedItem := opts.InitialIndex
 	if selectedItem < 0 || selectedItem >= len(items) {
 		selectedItem = 0
@@ -62,7 +62,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 	viewWidth := width - 4
 	pgAmount := viewHeight - 1
 
-	// 🔹 Ensure InitialIndex is visible
+	// Scroll so the starting line is visible.
 	viewStart := 0
 	if selectedItem >= viewHeight {
 		if selectedItem > len(items)-viewHeight {
@@ -274,7 +274,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			win.MoveAddChar(height-3, width-3, gc.ACS_HLINE)
 		}
 
-		// --- Scroll bar (old style patched in) ---
+		// --- Scroll bar ---
 		scrollHeight := viewHeight
 		if scrollHeight > 0 {
 			var gripHeight int
@@ -306,7 +306,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 		win.NoutRefresh()
 		gc.Update()
 
-		// non-blocking read
+		// Wait for a key, or the 100ms tick (for the scrolling title).
 		ch = readKey(win)
 
 		// Esc (B) and Backspace always press Back, where there is one.

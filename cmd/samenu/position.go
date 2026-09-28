@@ -114,7 +114,7 @@ func savePosition() {
 	_ = os.WriteFile(posFile, []byte(b.String()), 0644)
 }
 
-// entryKey names a folder listing's line for the saved position.
+// browseKey names a folder listing's line for the saved position.
 func browseKey(e browseEntry) string {
 	switch {
 	case e.Node != nil:

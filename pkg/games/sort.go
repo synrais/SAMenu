@@ -15,8 +15,8 @@ const arcadeId = "Arcade"
 
 // SortOptions controls how the systems list is ordered: an optional first
 // grouping, an optional second grouping inside it, and the order of the
-// systems inside the groups. The zero value is not the default; use
-// DefaultSortOptions.
+// systems inside the groups. The zero value isn't a sensible order: set
+// every field.
 type SortOptions struct {
 	Group         string   // first level: "Manufacturer", "Category" or "None"
 	GroupOrder    string   // "A-Z", "Oldest first" or "Custom" (Category only)

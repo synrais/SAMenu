@@ -95,9 +95,8 @@ func ParseLine(line string) (float64, string) {
 // --- Normalization helpers ---
 
 // NormalizeTitle turns a game title into a comparison key: lowercase,
-// Unicode-decomposed, letters and numbers only, single spaces. Unlike
-// NormalizeEntry it doesn't treat anything as a file extension, so titles
-// like "Dr. Mario" stay whole.
+// Unicode-decomposed, letters and numbers only, single spaces. Nothing is
+// treated as a file extension, so titles like "Dr. Mario" stay whole.
 func NormalizeTitle(title string) string {
 	name := norm.NFKD.String(strings.ToLower(title))
 

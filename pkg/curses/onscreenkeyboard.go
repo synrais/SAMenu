@@ -24,8 +24,8 @@ type KeyboardOpts struct {
 	Status func() string
 }
 
-// OnScreenKeyboardWith is OnScreenKeyboard with extra options. It returns
-// the pressed button, or -1 for Esc.
+// OnScreenKeyboardWith shows the on-screen keyboard, set up by opts. It
+// returns the pressed button, or -1 for Esc.
 func OnScreenKeyboardWith(stdscr *gc.Window, title string, buttons []string, defaultText string, opts KeyboardOpts) (int, string, error) {
 	// Always on a clean screen: nothing from the screen before it shows
 	// around the keyboard.

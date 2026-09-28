@@ -20,12 +20,6 @@ func IsMenuRunning() bool {
 	return activeCore == config.MenuCore
 }
 
-// RunOnScreen runs a program on the MiSTer's own screen (the Linux
-// console), the way the Scripts menu does, but started from outside: it
-// presses F9 on a virtual keyboard, which is MiSTer's key for showing the
-// console. Only works while the MiSTer menu core is loaded. It returns
-// when the program exits. Unlike RunScript it doesn't press F12 afterwards
-// (SAMenu leaves the console itself).
 // OpenMenuLog records each step of opening SAMenu on the TV.
 const OpenMenuLog = "/tmp/SAMenu_openmenu.log"
 
@@ -47,6 +41,12 @@ func activeTty() string {
 	return strings.TrimSpace(string(b))
 }
 
+// RunOnScreen runs a program on the MiSTer's own screen (the Linux
+// console), the way the Scripts menu does, but started from outside: it
+// presses F9 on a virtual keyboard, which is MiSTer's key for showing the
+// console. Only works while the MiSTer menu core is loaded. It returns
+// when the program exits. It doesn't press F12 afterwards (SAMenu leaves
+// the console itself).
 func RunOnScreen(exe string, args ...string) error {
 	core, _ := GetActiveCoreName()
 	stepLog("core loaded: %q, active console: %s", core, activeTty())

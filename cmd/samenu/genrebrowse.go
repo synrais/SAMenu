@@ -185,7 +185,7 @@ func genresScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 				}
 				return "[" + sys + "] " + title
 			}
-			rows := [][2]string{{"SNES", "Street Fighter II"}, {"Saturn", "Darkstalkers"}, {"SNES", "Killer Instinct"}, {"Saturn", "X-Men vs. Street Fighter"}}
+			var rows [][2]string
 			if order.value() == "System" {
 				rows = [][2]string{{"SNES", "Killer Instinct"}, {"SNES", "Street Fighter II"}, {"Saturn", "Darkstalkers"}, {"Saturn", "X-Men vs. Street Fighter"}}
 			} else {
