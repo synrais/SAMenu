@@ -330,7 +330,6 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				Buttons:       buttons,
 				ActionButton:  actionButton,
 				DefaultButton: actionButton,
-				SnapToAction:  true,
 				ShowTotal:     true,
 				Width:         systemListWidth,
 				Height:        listHeight,

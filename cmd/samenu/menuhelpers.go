@@ -140,7 +140,6 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 			Buttons:       buttons,
 			DefaultButton: 0,
 			ActionButton:  0,
-			SnapToAction:  true,
 			Width:         width,
 			Height:        len(items) + 4,
 			InitialIndex:  m.selected,

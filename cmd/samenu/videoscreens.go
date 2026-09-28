@@ -140,7 +140,6 @@ func videoBrowser(stdscr *gc.Window, dir string) {
 			Buttons:       buttons,
 			ActionButton:  2,
 			DefaultButton: 2,
-			SnapToAction:  true,
 			ShowTotal:     true,
 			Width:         systemListWidth,
 			Height:        listHeight,

@@ -18,8 +18,7 @@ type ListPickerOpts struct {
 	Width              int
 	Height             int
 	DynamicActionLabel func(selectedItem int) string
-	InitialIndex       int  // the line highlighted first
-	SnapToAction       bool // Up/Down/PgUp/PgDn move the highlight back to the action button
+	InitialIndex       int // the line highlighted first
 	// Shortcuts maps extra keys to buttons by label (e.g. esc -> "Back").
 	// A shortcut acts as if that button were pressed, keeping the current
 	// list position. Labels not on this list's buttons are ignored.
@@ -355,11 +354,14 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 		// A held button's repeats already waiting are taken now too: the list
 		// moves for all of them, then draws once (see heldRepeats).
 		for n := heldRepeats(win, ch); n > 0; n-- {
+			// Moving (Up, Down, a page) always puts the highlight back on the
+			// line's button (Open, Select...), from wherever it was.
+			switch ch {
+			case gc.KEY_UP, gc.KEY_DOWN, gc.KEY_PAGEUP, gc.KEY_PAGEDOWN:
+				selectedButton = opts.ActionButton
+			}
 			switch ch {
 			case gc.KEY_DOWN:
-				if opts.SnapToAction {
-					selectedButton = opts.ActionButton
-				}
 				if selectedItem < len(items)-1 {
 					selectedItem++
 					settle(1)
@@ -369,9 +371,6 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 				}
 				showSelected()
 			case gc.KEY_UP:
-				if opts.SnapToAction {
-					selectedButton = opts.ActionButton
-				}
 				if selectedItem > 0 {
 					selectedItem--
 					settle(-1)
@@ -393,14 +392,8 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 					selectedButton = 0
 				}
 			case gc.KEY_PAGEUP:
-				if opts.SnapToAction {
-					selectedButton = opts.ActionButton
-				}
 				pageUp()
 			case gc.KEY_PAGEDOWN:
-				if opts.SnapToAction {
-					selectedButton = opts.ActionButton
-				}
 				pageDown()
 			case gc.KEY_ENTER, 10, 13:
 				if selectedButton == opts.ActionButton {
