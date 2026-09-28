@@ -185,11 +185,13 @@ Press **X** (Space) on the systems screen.
 | **Attract Mode** | Start attract mode, its settings, attract playlists, and the detector and list settings |
 | **Display & Sorting** | Menu list options (labels, text size, remember position), menu list sorting, game list sorting (including hidden tags), Virtual A-Z Folders, [Pick Random Game], [Genre Collection], [Favourites] and [History] |
 | **Controls** | **Games Menu** (Menu Layout and the menu's mapping), **Attract Mode** (which inputs it watches, sticks, its mapping, and what other buttons do), **BIOS Skip** (when it runs, and each system's sequence) and the **Input test** |
-| **Music Player** | Play, stop and next, the playback order and the playlist |
+| **Music Player** | Play and stop, next and previous track, the playback order and the playlist |
 | **Video Player** | Browse and play videos, the playlist settings, videos in attract mode, and the sync options |
 | **Startup** | What starts when the MiSTer boots |
 
 Changes are saved to `SAMenu.ini` as you make them.
+
+Lists of systems to tick (database systems, attract mode systems, A-Z folders, leaving systems out) are in groups, as the menu groups them (by manufacturer or category). Each group's heading has its own box: **[x]** all on, **[ ]** none, **[-]** some. Choose it to turn the whole group on, or off when it already is. **All** and **None** do the whole list.
 
 ---
 

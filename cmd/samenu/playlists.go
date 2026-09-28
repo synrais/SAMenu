@@ -214,7 +214,7 @@ func tickGenres(stdscr *gc.Window, cfg *config.Config, title string, files []Men
 		g := config.CustomGenre(text)
 		return g, fmt.Sprintf("%s (%d)", customLabel(g), customCount(g)), true
 	}}
-	tickListWith(stdscr, title, ids, labels, on, func(m map[string]bool) {
+	tickListWith(stdscr, title, ids, labels, nil, on, func(m map[string]bool) {
 		changed = true
 		listed := map[string]bool{}
 		for _, id := range ids {

@@ -228,15 +228,31 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) bool {
 
 // tickSystems shows a tick list of systems. Changes are handed to save
 // when leaving, only if anything changed.
+// The systems are in groups, as the menu groups them (by manufacturer or
+// category; by category when the menu doesn't group), each with a heading
+// that turns the whole group on or off.
 func tickSystems(stdscr *gc.Window, title string, ids []string, on map[string]bool, save func(map[string]bool)) {
-	labels := systemLabels(namesOf(ids), optionsWidth-10)
-	tickList(stdscr, title, ids, labels, on, save)
+	names := namesOf(ids)
+	labels := systemLabels(names, optionsWidth-14)
+	by := optGroup.value()
+	if by == "None" {
+		by = "Category"
+	}
+	groups := make([]string, len(ids))
+	for i, n := range names {
+		g := games.SystemGroup(n, by)
+		if t, ok := categoryTitles[g]; ok && by == "Category" {
+			g = t
+		}
+		groups[i] = g
+	}
+	tickListWith(stdscr, title, ids, labels, groups, on, save, nil)
 }
 
 // tickList is a list of tick boxes: ids are what's ticked (keys of on),
 // labels what's shown for each. save gets the ticks if anything changed.
 func tickList(stdscr *gc.Window, title string, ids, labels []string, on map[string]bool, save func(map[string]bool)) {
-	tickListWith(stdscr, title, ids, labels, on, save, nil)
+	tickListWith(stdscr, title, ids, labels, nil, on, save, nil)
 }
 
 // tickAction is an entry above a tick list's boxes (e.g. "Create custom
@@ -246,26 +262,87 @@ type tickAction struct {
 	run   func() (id, label string, ok bool)
 }
 
-// tickListWith is tickList with an optional action at the top (nil for
-// none), which is also where the highlight starts.
-func tickListWith(stdscr *gc.Window, title string, ids, labels []string, on map[string]bool, save func(map[string]bool), top *tickAction) {
+// tickRow is one line of a tick list: an entry (id >= 0), or a group's
+// heading (group >= 0), or the action at the top (neither).
+type tickRow struct{ id, group int }
+
+// tickListWith is tickList with the entries in groups, and an optional
+// action at the top (nil for none), which is also where the highlight
+// starts. groups is each entry's group, shown as a heading above its
+// entries (nil for no groups). A heading has its own box: [x] all its
+// entries on, [ ] none, [-] some; choosing it turns them all on, or off
+// if they already are.
+func tickListWith(stdscr *gc.Window, title string, ids, labels, groups []string, on map[string]bool, save func(map[string]bool), top *tickAction) {
 	changed := false
 	selected := 0
-	r := 0 // rows above the tick boxes
-	if top != nil {
-		r = 1
+	box := func(n, of int) string {
+		switch {
+		case n == 0:
+			return "[ ]"
+		case n == of:
+			return "[x]"
+		}
+		return "[-]"
 	}
 	for {
-		items := make([]string, 0, len(ids)+r)
+		// The rows: the action, then each group's heading and entries, in
+		// the order the groups first appear.
+		var rows []tickRow
 		if top != nil {
-			items = append(items, top.label)
+			rows = append(rows, tickRow{-1, -1})
 		}
-		for i, id := range ids {
-			box := "[ ]"
-			if on[id] {
-				box = "[x]"
+		var names []string  // the groups' names
+		var members [][]int // each group's entries
+		if groups == nil {
+			for i := range ids {
+				rows = append(rows, tickRow{i, -1})
 			}
-			items = append(items, box+" "+strings.TrimLeft(labels[i], " "))
+		} else {
+			index := map[string]int{}
+			for i := range ids {
+				g, ok := index[groups[i]]
+				if !ok {
+					g = len(names)
+					index[groups[i]] = g
+					names = append(names, groups[i])
+					members = append(members, nil)
+				}
+				members[g] = append(members[g], i)
+			}
+			for g := range names {
+				rows = append(rows, tickRow{-1, g})
+				for _, i := range members[g] {
+					rows = append(rows, tickRow{i, -1})
+				}
+			}
+		}
+		ticked := func(g int) int {
+			n := 0
+			for _, i := range members[g] {
+				if on[ids[i]] {
+					n++
+				}
+			}
+			return n
+		}
+		items := make([]string, len(rows))
+		for r, row := range rows {
+			switch {
+			case row.id >= 0:
+				mark := "[ ]"
+				if on[ids[row.id]] {
+					mark = "[x]"
+				}
+				indent := ""
+				if groups != nil {
+					indent = "    "
+				}
+				items[r] = indent + mark + " " + strings.TrimLeft(labels[row.id], " ")
+			case row.group >= 0:
+				items[r] = box(ticked(row.group), len(members[row.group])) + " " + names[row.group]
+			default:
+				items[r] = top.label
+			}
 		}
 		clearScreen(stdscr)
 		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
@@ -279,11 +356,20 @@ func tickListWith(stdscr *gc.Window, title string, ids, labels []string, on map[
 			Width:         optionsWidth,
 			Height:        listHeight,
 			InitialIndex:  selected,
-			DynamicActionLabel: func(i int) string {
-				if i < r {
-					return "Choose"
+			DynamicActionLabel: func(r int) string {
+				if r < 0 || r >= len(rows) {
+					return "Toggle"
 				}
-				return "Toggle"
+				switch row := rows[r]; {
+				case row.id >= 0:
+					return "Toggle"
+				case row.group >= 0:
+					if ticked(row.group) == len(members[row.group]) {
+						return "All off"
+					}
+					return "All on"
+				}
+				return "Choose"
 			},
 		}, items)
 		if err != nil {
@@ -294,7 +380,21 @@ func tickListWith(stdscr *gc.Window, title string, ids, labels []string, on map[
 		}
 		switch button {
 		case 0:
-			if sel >= 0 && sel < r {
+			if sel < 0 || sel >= len(rows) {
+				continue
+			}
+			switch row := rows[sel]; {
+			case row.id >= 0:
+				on[ids[row.id]] = !on[ids[row.id]]
+				changed = true
+			case row.group >= 0:
+				// Some or none on: all on. All on: all off.
+				all := ticked(row.group) < len(members[row.group])
+				for _, i := range members[row.group] {
+					on[ids[i]] = all
+				}
+				changed = true
+			default:
 				if id, label, ok := top.run(); ok {
 					known := false
 					for _, existing := range ids {
@@ -303,20 +403,18 @@ func tickListWith(stdscr *gc.Window, title string, ids, labels []string, on map[
 					if !known { // new entries go at the top, under the action
 						ids = append([]string{id}, ids...)
 						labels = append([]string{label}, labels...)
+						if groups != nil {
+							groups = append([]string{""}, groups...)
+						}
 					}
 					on[id] = true
 					changed = true
 					for i, existing := range ids {
 						if existing == id {
-							selected = i + r
+							selected = i + 1
 						}
 					}
 				}
-				continue
-			}
-			if i := sel - r; i >= 0 && i < len(ids) {
-				on[ids[i]] = !on[ids[i]]
-				changed = true
 			}
 			continue
 		case 1, 2:
