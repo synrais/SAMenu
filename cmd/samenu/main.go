@@ -589,7 +589,7 @@ func main() {
 	openMenuPtr := flag.String("openmenu", "", "Internal: open SAMenu on the TV (menu or search)")
 	findPtr := flag.Bool("find", false, "Play the games matching the words first, e.g. -find mario 3 (starts attract mode if it isn't running)")
 	herePtr := flag.Bool("here", false, "With -search or -menu: open it in this terminal (e.g. over SSH), not on the TV")
-	musicPtr := flag.String("music", "", "Music player: start, stop, next or status")
+	musicPtr := flag.String("music", "", "Music player: start, stop, next, previous or status")
 	musicdPtr := flag.Bool("musicd", false, "Internal: the music player process")
 	videoPtr := flag.String("video", "", "Video player: play [file|folder|playlist|-], next, stop or status")
 	videodPtr := flag.Bool("videod", false, "Internal: the video player process")

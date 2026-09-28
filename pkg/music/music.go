@@ -87,7 +87,7 @@ func Running() bool {
 	return err == nil && strings.Contains(string(c), "-musicd")
 }
 
-// Send sends a command ("next", "stop") to the running player.
+// Send sends a command ("next", "previous", "stop") to the running player.
 func Send(cmd string) error {
 	f, err := os.OpenFile(CommandPipe, os.O_WRONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
@@ -165,7 +165,10 @@ func Run(cfg *config.Config) {
 	}()
 
 	status := func(s string) { _ = os.WriteFile(StatusFile, []byte(s+"\n"), 0644) }
-	order := 0
+	at := -1           // In order: the track playing, in the folder
+	var last string    // Random: the track before this one
+	var current string // the track playing
+	back := false      // Previous was pressed
 	for {
 		// Settings can change while it runs (menu Options).
 		if c, err := config.Load(); err == nil {
@@ -183,21 +186,37 @@ func Run(cfg *config.Config) {
 			}
 			continue
 		}
+		// The next track, or with Previous the one before: In order, one
+		// back in the folder; Random, the one that played before.
 		var track string
-		if strings.EqualFold(cfg.Music.Playback, "In order") {
-			track = tracks[order%len(tracks)]
-			order++
-		} else {
+		switch {
+		case strings.EqualFold(cfg.Music.Playback, "In order"):
+			if back {
+				at = (at - 1 + 2*len(tracks)) % len(tracks)
+			} else {
+				at = (at + 1) % len(tracks)
+			}
+			track = tracks[at]
+		case back && last != "":
+			track = last
+		default:
 			track = tracks[rand.Intn(len(tracks))]
 		}
-		if stop := play(cfg, track, cmds, status); stop {
+		last, current = current, track
+		switch play(cfg, track, cmds, status) {
+		case "stop":
 			return
+		case "previous":
+			back = true
+		default:
+			back = false
 		}
 	}
 }
 
-// play plays one track; it reports true when told to stop.
-func play(cfg *config.Config, track string, cmds <-chan string, status func(string)) bool {
+// play plays one track until it ends ("") or is told "next", "previous" or
+// "stop", which it reports.
+func play(cfg *config.Config, track string, cmds <-chan string, status func(string)) string {
 	var c *exec.Cmd
 	if strings.HasSuffix(strings.ToLower(track), ".ogg") {
 		c = exec.Command("ogg123", "-q", track)
@@ -207,7 +226,7 @@ func play(cfg *config.Config, track string, cmds <-chan string, status func(stri
 	if err := c.Start(); err != nil {
 		status("Can't play " + filepath.Base(track) + ": " + err.Error())
 		time.Sleep(2 * time.Second)
-		return false
+		return ""
 	}
 	name := strings.TrimSuffix(filepath.Base(track), filepath.Ext(track))
 	done := make(chan struct{})
@@ -220,19 +239,14 @@ func play(cfg *config.Config, track string, cmds <-chan string, status func(stri
 	for {
 		select {
 		case <-done:
-			return false
+			return ""
 		case cmd := <-cmds:
 			switch cmd {
-			case "next":
+			case "next", "previous", "stop":
 				_ = c.Process.Signal(syscall.SIGCONT)
 				_ = c.Process.Kill()
 				<-done
-				return false
-			case "stop":
-				_ = c.Process.Signal(syscall.SIGCONT)
-				_ = c.Process.Kill()
-				<-done
-				return true
+				return cmd
 			}
 		case <-tick.C:
 			// Pause while a game core is loaded (its own sound plays), and

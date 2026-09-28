@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	gc "github.com/rthornton128/goncurses"
 
@@ -24,8 +25,25 @@ func playlistName(p string) string {
 	return p
 }
 
-// musicScreen is Options -> Music Player: start or stop the player, skip a
-// track, and its settings ([Music], and [Startup] Music).
+// musicSkipped is whether Next track was pressed since the music started:
+// Previous track shows from then on.
+var musicSkipped bool
+
+// skipTrack sends the player "next" or "previous", and waits a moment for
+// it to change track, so the screen shows the new one.
+func skipTrack(cmd string) {
+	before := music.Status()
+	if music.Send(cmd) != nil {
+		return
+	}
+	for i := 0; i < 20 && music.Status() == before; i++ {
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// musicScreen is Options -> Music Player: play or stop the player, skip a
+// track (Next, then Previous) while it plays, and its settings ([Music],
+// and [Startup] Music).
 func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 	m := &cfg.Music
 	save := func() {
@@ -36,17 +54,10 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 		}
 	}
 	(&menuScreen{title: "Music Player", lines: func() []menuLine {
-		playing := music.Running()
-		toggle, verb := "Start music", "Start"
-		if playing {
-			toggle, verb = "Stop music", "Stop"
-		}
-		return []menuLine{
-			action(verb, fmt.Sprintf("%-22s (%s)", toggle, music.Status()), func() {
-				if playing {
-					music.Stop()
-					return
-				}
+		var lines []menuLine
+		if !music.Running() {
+			musicSkipped = false
+			lines = append(lines, action("Play", fmt.Sprintf("%-22s (%s)", "Play music", music.Status()), func() {
 				exe, err := os.Executable()
 				if err == nil {
 					err = music.Start(exe)
@@ -54,12 +65,19 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 				if err != nil {
 					message(stdscr, fmt.Sprintf("Couldn't do that: %v", err))
 				}
-			}),
-			action("Next", "Next track", func() {
-				if music.Send("next") != nil {
-					message(stdscr, "The music player isn't running.")
-				}
-			}),
+			}))
+		} else {
+			lines = append(lines,
+				action("Stop", fmt.Sprintf("%-22s (%s)", "Stop music", music.Status()), music.Stop),
+				action("Next", "Next track", func() {
+					skipTrack("next")
+					musicSkipped = true
+				}))
+			if musicSkipped {
+				lines = append(lines, action("Previous", "Previous track", func() { skipTrack("previous") }))
+			}
+		}
+		return append(lines,
 			setting(fmt.Sprintf("%-22s %s", "Playback:", m.Playback), func() {
 				m.Playback = nextOf([]string{"Random", "In order"}, m.Playback)
 				save()
@@ -72,7 +90,7 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 				m.PauseInGames = !m.PauseInGames
 				save()
 			}),
-		}
+		)
 	}}).run(stdscr)
 }
 

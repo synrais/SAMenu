@@ -247,7 +247,8 @@ func openOnTV(search bool) {
 	fmt.Println("Opening SAMenu on the TV...")
 }
 
-// musicCommand controls the music player: start, stop, next or status.
+// musicCommand controls the music player: start, stop, next, previous or
+// status.
 func musicCommand(cmd string) {
 	switch strings.ToLower(cmd) {
 	case "start":
@@ -269,10 +270,16 @@ func musicCommand(cmd string) {
 			os.Exit(1)
 		}
 		fmt.Println("Next track.")
+	case "previous":
+		if err := music.Send("previous"); err != nil {
+			fmt.Println("The music player isn't running.")
+			os.Exit(1)
+		}
+		fmt.Println("Previous track.")
 	case "status":
 		fmt.Println("Music player:", music.Status())
 	default:
-		fmt.Println("Usage: SAMenu.sh -music start|stop|next|status")
+		fmt.Println("Usage: SAMenu.sh -music start|stop|next|previous|status")
 		os.Exit(1)
 	}
 }

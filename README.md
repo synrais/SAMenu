@@ -371,7 +371,8 @@ Test a sequence on a running game with `SAMenu.sh -press start`.
 
 The music player plays **MP3** and **OGG** files from **`/media/fat/music`** in the background. Each folder inside it is a **playlist**.
 
-- Use **Options → Music Player**, or `SAMenu.sh -music start | stop | next | status`.
+- Use **Options → Music Player**, or `SAMenu.sh -music start | stop | next | previous | status`.
+- **Play music** starts it. While it plays, **Next track** skips on, and after that **Previous track** goes back: one title back in the folder (In order), or the song before (Random).
 - **Playback** is Random or In order. **Playlist** is the music folder itself, a folder inside it, or All.
 - **Pause in games** is on by default. MiSTer mixes this music into every core's sound, so it pauses while a game plays and carries on in the menu. It always pauses while a video plays.
 
@@ -477,7 +478,7 @@ Everything can be run over SSH or from any script:
 | `-rebuild` | Rebuild the games database |
 | `-genres` | Print the genres found in the database, with counts per system |
 | **Music and video** | |
-| `-music start \| stop \| next \| status` | The music player |
+| `-music start \| stop \| next \| previous \| status` | The music player |
 | `-video play [file \| folder \| -]` | The video player (`-` plays a video piped in) |
 | `-video next \| stop \| status` | Control the video player |
 | **Testing** | |
