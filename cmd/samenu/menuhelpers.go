@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"strings"
 
 	gc "github.com/rthornton128/goncurses"
@@ -80,13 +81,31 @@ func stay(press func()) func() bool {
 	}
 }
 
-// menuScreen is one options screen.
+// labelColumn is where every setting's value starts ("Name:" padded to
+// it), on every options screen: the longest label fits.
+const labelColumn = 28
+
+// settingText is a setting line, "Name:  value", its value in the shared
+// column.
+func settingText(label, value string) string {
+	return fmt.Sprintf("%-*s %s", labelColumn, label, value)
+}
+
+// settingIndented is settingText for a line indented under a heading, its
+// value in the same column.
+func settingIndented(label, value string) string {
+	return "  " + fmt.Sprintf("%-*s %s", labelColumn-2, label, value)
+}
+
+// menuScreen is one options screen. Every options screen is one, so they
+// all look and work the same: one width, values in one column.
 type menuScreen struct {
 	title    string
 	titleOf  func() string // instead of title, when it can change (a rename)
-	wide     bool          // the wider options width, for long lines
 	selected int           // the line highlighted: set it from a press to move on
 	lines    func() []menuLine
+	preview  func() []string // a live preview in a box under the list, if any
+	leave    func()          // run on leaving the screen (e.g. saving), if any
 }
 
 // run shows the screen until Back, or until a line leaves it. The lines
@@ -94,6 +113,9 @@ type menuScreen struct {
 // It always lands on the line's button (Select, Change...), also after
 // backing out of a screen opened here: B backs out from anywhere.
 func (m *menuScreen) run(stdscr *gc.Window) {
+	if m.leave != nil {
+		defer m.leave()
+	}
 	buttons := []string{"Select", "Back"}
 	pressed := "" // the name of the line last pressed
 	for {
@@ -129,19 +151,41 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 		if m.titleOf != nil {
 			title = m.titleOf()
 		}
-		width := 60
-		if m.wide {
-			width = optionsWidth
-		}
 		clearScreen(stdscr)
+		// With a preview, the list and the preview's box are placed together
+		// as one block, centred, the preview cut short if the screen is.
+		height := len(items) + 4
+		top := 0 // centred
+		var previewWin *gc.Window
+		if m.preview != nil {
+			rows, _ := stdscr.MaxYX()
+			shown := m.preview()
+			if room := rows - height - 2; len(shown) > room {
+				if room < 0 {
+					room = 0
+				}
+				shown = shown[:room]
+			}
+			block := height
+			if len(shown) > 0 {
+				block += len(shown) + 2
+			}
+			if top = (rows - block) / 2; top < 1 {
+				top = 1 // 0 would mean "centre" to the list
+			}
+			if len(shown) > 0 {
+				previewWin = drawPreview(stdscr, shown, top+height)
+			}
+		}
 		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
 			Shortcuts:     menuShortcuts(),
 			Title:         title,
 			Buttons:       buttons,
 			DefaultButton: 0,
 			ActionButton:  0,
-			Width:         width,
-			Height:        len(items) + 4,
+			Width:         optionsWidth,
+			Height:        height,
+			Top:           top,
 			InitialIndex:  m.selected,
 			Headers:       headers,
 			DynamicActionLabel: func(i int) string {
@@ -151,6 +195,9 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 				return ""
 			},
 		}, items)
+		if previewWin != nil {
+			previewWin.Delete()
+		}
 		clearScreen(stdscr)
 		if err != nil || button != 0 || sel < 0 || sel >= len(lines) {
 			return

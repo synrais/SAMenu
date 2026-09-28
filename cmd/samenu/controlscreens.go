@@ -48,7 +48,7 @@ func message(stdscr *gc.Window, text string) {
 // controlsScreen is Options -> Controls: the games menu's buttons, attract
 // mode's, BIOS skip and the input test.
 func controlsScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
-	(&menuScreen{title: "Controls", wide: true, lines: func() []menuLine {
+	(&menuScreen{title: "Controls", lines: func() []menuLine {
 		return []menuLine{
 			opens("Games Menu...", func() { gamesMenuControls(stdscr, cfg) }),
 			opens("Attract Mode...", func() { attractModeControls(stdscr, cfg) }),
@@ -89,11 +89,11 @@ var menuActionNames = map[string]string{
 // gamesMenuControls is Controls -> Games Menu: the layout, and the menu's
 // actions (keys, or controller buttons MiSTer doesn't pass on as keys).
 func gamesMenuControls(stdscr *gc.Window, cfg *config.Config) {
-	(&menuScreen{title: "Games Menu", wide: true, lines: func() []menuLine {
+	(&menuScreen{title: "Games Menu", lines: func() []menuLine {
 		var lines []menuLine
 		for _, act := range config.MenuActions {
 			act := act
-			lines = append(lines, setting(fmt.Sprintf("%-24s %s", menuActionNames[act]+":", inputsText(cfg.MenuControls[act])), func() {
+			lines = append(lines, setting(settingText(menuActionNames[act]+":", inputsText(cfg.MenuControls[act])), func() {
 				in, ok := captureMenuInput(stdscr, fmt.Sprintf("Press a key or button for\n%s (a bound one removes it, Back or wait %ds to cancel)",
 					menuActionNames[act], int(bindTimeout.Seconds())))
 				if !ok {
@@ -110,7 +110,7 @@ func gamesMenuControls(stdscr *gc.Window, cfg *config.Config) {
 		// Layout below the actions, so a quick double press on entering
 		// can't swap confirm and back.
 		return append(lines,
-			setting(fmt.Sprintf("%-24s %s", "Menu Layout:", layoutText[cfg.MenuLayout]), func() {
+			setting(settingText("Menu Layout:", layoutText[cfg.MenuLayout]), func() {
 				cfg.MenuLayout = nextOf([]string{"Japanese", "Western"}, cfg.MenuLayout)
 				curses.SwapConfirmBack = cfg.MenuLayout == "Japanese"
 				saveErr(stdscr, config.SaveMenuLayout(cfg))
@@ -173,12 +173,12 @@ func attractModeControls(stdscr *gc.Window, cfg *config.Config) {
 	d := &cfg.InputDetector
 	saveDetector := func() { saveErr(stdscr, config.SaveInputDetector(cfg)) }
 	toggle := func(name string, on *bool) menuLine {
-		return setting(fmt.Sprintf("%-20s %s", name+":", onOffText(*on)), func() {
+		return setting(settingText(name+":", onOffText(*on)), func() {
 			*on = !*on
 			saveDetector()
 		})
 	}
-	(&menuScreen{title: "Attract Mode", wide: true, lines: func() []menuLine {
+	(&menuScreen{title: "Attract Mode", lines: func() []menuLine {
 		lines := []menuLine{
 			toggle("Mouse", &d.Mouse),
 			toggle("Keyboard", &d.Keyboard),
@@ -186,14 +186,14 @@ func attractModeControls(stdscr *gc.Window, cfg *config.Config) {
 			toggle("Sticks", &d.Sticks),
 		}
 		if d.Sticks {
-			lines = append(lines, setting(fmt.Sprintf("%-20s %d ms", "Stick hold:", d.StickHoldMs), func() {
+			lines = append(lines, setting(settingText("Stick hold:", fmt.Sprintf("%d ms", d.StickHoldMs)), func() {
 				d.StickHoldMs = nextStickHold(d.StickHoldMs)
 				saveDetector()
 			}))
 		}
 		return append(lines,
 			opens("Mapping...", func() { attractMapping(stdscr, cfg) }),
-			setting(fmt.Sprintf("%-20s %s", "Other buttons:", otherButtonsText(cfg)), func() {
+			setting(settingText("Other buttons:", otherButtonsText(cfg)), func() {
 				cfg.Attract.OtherInput = nextOtherButtons(cfg)
 				saveErr(stdscr, config.SaveValues(cfg.Path, "Attract", [][2]string{{"OtherInput", cfg.Attract.OtherInput}}))
 			}),
@@ -210,11 +210,11 @@ func attractModeControls(stdscr *gc.Window, cfg *config.Config) {
 // attractMapping is Controls -> Attract Mode -> Mapping: attract mode's
 // actions and the keys, buttons and mouse buttons bound to them.
 func attractMapping(stdscr *gc.Window, cfg *config.Config) {
-	(&menuScreen{title: "Attract Mapping", wide: true, lines: func() []menuLine {
+	(&menuScreen{title: "Mapping", lines: func() []menuLine {
 		var lines []menuLine
 		for _, act := range config.AttractActions {
 			act := act
-			lines = append(lines, setting(fmt.Sprintf("%-20s %s", attractActionNames[act]+":", attractBindingText(cfg, act)), func() {
+			lines = append(lines, setting(settingText(attractActionNames[act]+":", attractBindingText(cfg, act)), func() {
 				ev, ok := waitForInput(stdscr, fmt.Sprintf("Press a key, button or mouse button for\n%s (a bound one removes it, wait %ds to cancel)",
 					attractActionNames[act], int(bindTimeout.Seconds())))
 				if !ok {

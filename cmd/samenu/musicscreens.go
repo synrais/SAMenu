@@ -59,7 +59,7 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 		var lines []menuLine
 		if !music.Running() {
 			musicSkipped = false
-			lines = append(lines, action("Play", fmt.Sprintf("%-22s (%s)", "Play music", music.Status()), func() {
+			lines = append(lines, action("Play", settingText("Play music", fmt.Sprintf("(%s)", music.Status())), func() {
 				exe, err := os.Executable()
 				if err == nil {
 					err = music.Start(exe)
@@ -70,7 +70,7 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 			}))
 		} else {
 			lines = append(lines,
-				action("Stop", fmt.Sprintf("%-22s (%s)", "Stop music", music.Status()), music.Stop),
+				action("Stop", settingText("Stop music", fmt.Sprintf("(%s)", music.Status())), music.Stop),
 				action("Next", "Next track", func() {
 					skipTrack("next")
 					musicSkipped = true
@@ -80,15 +80,15 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 			}
 		}
 		return append(lines,
-			setting(fmt.Sprintf("%-22s %s", "Playback:", m.Playback), func() {
+			setting(settingText("Playback:", m.Playback), func() {
 				m.Playback = nextOf([]string{"Random", "In order"}, m.Playback)
 				save()
 			}),
-			setting(fmt.Sprintf("%-22s %s", "Playlist:", playlistName(m.Playlist)), func() {
+			setting(settingText("Playlist:", playlistName(m.Playlist)), func() {
 				m.Playlist = nextOf(music.Playlists(), m.Playlist)
 				save()
 			}),
-			setting(fmt.Sprintf("%-22s %s", "Pause during games:", onOffText(m.PauseInGames)), func() {
+			setting(settingText("Pause during games:", onOffText(m.PauseInGames)), func() {
 				m.PauseInGames = !m.PauseInGames
 				save()
 			}),

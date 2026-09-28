@@ -28,7 +28,7 @@ func playlistsScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 		if p := cfg.ActivePlaylist(); p != nil {
 			active = p.Name
 		}
-		lines := []menuLine{setting(fmt.Sprintf("%-22s %s", "Attract mode plays:", active), func() {
+		lines := []menuLine{setting(settingText("Attract mode plays:", active), func() {
 			// Cycle through Normal and the playlists.
 			if err := config.SetActivePlaylist(cfg, nextOf(append([]string{"Normal"}, names...), active)); err != nil {
 				message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
@@ -256,20 +256,20 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 		}
 		return []menuLine{
 			info("Plays: " + config.DescribePlaylist(p, nameOf)),
-			setting(fmt.Sprintf("%-18s %s", "All systems:", all), func() {
+			setting(settingText("All systems:", all), func() {
 				if picked, changed := tickGenres(stdscr, cfg, "Genres for all systems", files, "", p.All); changed {
 					p.All = picked
 					save()
 				}
 			}),
-			setting(fmt.Sprintf("%-18s %d picked", "Per system:", len(p.Systems)), func() {
+			setting(settingText("Per system:", fmt.Sprintf("%d picked", len(p.Systems))), func() {
 				perSystemGenres(stdscr, cfg, files, p, nameOf, save)
 			}),
 			setting(othersLine(p), func() {
 				p.Others = nextOf([]string{config.OthersAsNormal, config.OthersLeaveOut}, p.Others)
 				save()
 			}),
-			setting(fmt.Sprintf("%-23s %s", "Skip:", skipText(p)), func() {
+			setting(settingText("Skip:", skipText(p)), func() {
 				words, kept := skipWords(p.Skip)
 				title := "Skip games containing (words, space between)"
 				if len(kept) > 0 {
@@ -286,7 +286,7 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 				p.Skip = append(skipPatterns(text), kept...)
 				save()
 			}),
-			setting(fmt.Sprintf("%-23s %s", "Leave out systems:", leftOutText(p, nameOf)), func() {
+			setting(settingText("Leave out systems:", leftOutText(p, nameOf)), func() {
 				leaveOutSystems(stdscr, files, p, save)
 			}),
 			opens("Rename...", func() {
@@ -362,7 +362,7 @@ func perSystemLine(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *c
 	if g := p.Systems[id]; len(g) > 0 {
 		picks = strings.Join(g, ", ")
 	}
-	return opens(fmt.Sprintf("  %-22s %s", nameOf(id), picks), func() {
+	return opens(settingIndented(nameOf(id), picks), func() {
 		if picked, changed := tickGenres(stdscr, cfg, "Genres for "+nameOf(id), files, id, p.Systems[id]); changed {
 			if len(picked) == 0 {
 				delete(p.Systems, id)
@@ -378,9 +378,9 @@ func perSystemLine(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *c
 // All systems genres picked there are none: those apply to every system.
 func othersLine(p *config.Playlist) string {
 	if len(p.All) > 0 {
-		return fmt.Sprintf("%-23s %s", "Systems with no picks:", "Set by All Systems")
+		return settingText("Systems with no picks:", "Set by All Systems")
 	}
-	return fmt.Sprintf("%-23s %s", "Systems with no picks:", p.Others)
+	return settingText("Systems with no picks:", p.Others)
 }
 
 // skipText shows the playlist's Skip patterns (per-system skips are only

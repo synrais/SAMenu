@@ -60,7 +60,7 @@ func videoScreen(stdscr *gc.Window, cfg *config.Config) {
 	// sync is one of the sync settings, mostly for sound drifting after
 	// seeking.
 	sync := func(name string, on *bool) menuLine {
-		return change(fmt.Sprintf("%-32s %s", name, onOffText(*on)), func() { *on = !*on })
+		return change(settingText(name, onOffText(*on)), func() { *on = !*on })
 	}
 	(&menuScreen{title: "Video Player", lines: func() []menuLine {
 		return []menuLine{
@@ -73,13 +73,13 @@ func videoScreen(stdscr *gc.Window, cfg *config.Config) {
 				}
 				playVideos(stdscr, files, v.Playback == "Random")
 			}),
-			change(fmt.Sprintf("%-22s %s", "Playback:", v.Playback), func() {
+			change(settingText("Playback:", v.Playback), func() {
 				v.Playback = nextOf([]string{"Random", "In order"}, v.Playback)
 			}),
-			change(fmt.Sprintf("%-22s %s", "Playlist:", videoFolderName(v.Playlist)), func() {
+			change(settingText("Playlist:", videoFolderName(v.Playlist)), func() {
 				v.Playlist = nextOf(video.Playlists(), v.Playlist)
 			}),
-			change(fmt.Sprintf("%-22s %s", "In attract mode:", videoAttractText(v.AttractEvery)), func() {
+			change(settingText("In attract mode:", videoAttractText(v.AttractEvery)), func() {
 				v.AttractEvery = nextOf(videoAttractChoices, v.AttractEvery)
 			}),
 			sync("Fast A/V resync (all files):", &v.AutoSync),

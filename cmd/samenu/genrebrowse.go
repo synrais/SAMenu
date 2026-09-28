@@ -123,10 +123,17 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 // genresScreen is Options -> Display & Sorting -> [Genres].
 func genresScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 	show := onOffOption("Show [Genre Collection]", cfg.Menu.GenresEntry)
-	// Leave out systems: a tick list, shown as a count here.
+	// Leave out systems: a tick list, its systems shown here.
 	leaveOut := labelOption{"Leave out systems", []string{""}, 0}
 	leaveOutText := func() {
-		leaveOut.values[0] = fmt.Sprintf("%d  (select to choose)", len(cfg.Menu.GenresExclude))
+		leaveOut.values[0] = "none"
+		if len(cfg.Menu.GenresExclude) > 0 {
+			names := make([]string, len(cfg.Menu.GenresExclude))
+			for i, id := range cfg.Menu.GenresExclude {
+				names[i] = games.DisplayName(id)
+			}
+			leaveOut.values[0] = strings.Join(names, ", ")
+		}
 	}
 	leaveOutText()
 	where := labelOption{"System names", []string{"Before", "After", "Off"}, 0}
@@ -159,7 +166,7 @@ func genresScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
 					kept = append(kept, x)
 				}
 			}
-			tickSystems(stdscr, "Leave out of [Genres]", ids, on, func(on map[string]bool) {
+			tickSystems(stdscr, "Leave out systems", ids, on, func(on map[string]bool) {
 				out := append([]string(nil), kept...)
 				for _, id := range ids {
 					if on[id] {

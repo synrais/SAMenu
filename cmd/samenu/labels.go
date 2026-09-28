@@ -12,7 +12,7 @@ import (
 )
 
 // -------------------------
-// Menu List Options
+// Menu list options
 // -------------------------
 //
 // These settings control how the main system list shows each
@@ -113,7 +113,7 @@ var dividers = map[string]string{
 }
 
 // systemLabels builds the list labels for the given system names using the
-// current Menu List Options, positioned within a text area of viewWidth.
+// current Menu list options, positioned within a text area of viewWidth.
 func systemLabels(names []string, viewWidth int) []string {
 	// Manufacturer hidden: just the full system name, e.g. "Atari 2600".
 	if optShowManufacturer.isOn() {
@@ -253,7 +253,7 @@ var optionsWidth = 70 // set from the screen by fitToScreen
 func menuListOptions(stdscr *gc.Window, sysIds []string, cfg *config.Config) {
 	preview := previewIndexes(sysIds)
 	runOptionsScreen(stdscr, cfg, optionsScreen{
-		title: "Menu List Options",
+		title: "Menu list options",
 		options: func() []*labelOption {
 			if optShowManufacturer.isOn() {
 				// The other settings only shape the manufacturer part.
@@ -289,80 +289,43 @@ type optionsScreen struct {
 	noPreview bool
 }
 
-// runOptionsScreen shows the settings, with the preview in its own box
-// underneath so only the settings can be highlighted. Selecting a setting
-// cycles to its next value. Changes are saved to SAMenu.ini on the way out.
+// runOptionsScreen shows the settings on a menu screen, like every other
+// options screen, with the preview in its own box underneath. Selecting a
+// setting moves it on to its next value; one with a single value is chosen
+// on another screen (the changed hook opens it), so it reads Select.
+// Changes are saved to SAMenu.ini once, on the way out: some saves do more
+// (Startup rewrites user-startup.sh), so not after every press.
 func runOptionsScreen(stdscr *gc.Window, cfg *config.Config, sc optionsScreen) {
 	changed := false
-	selected := 0
-	for {
-		opts := sc.options()
-		items := make([]string, len(opts))
-		for i, o := range opts {
-			items[i] = fmt.Sprintf("%-22s %s", o.name+":", o.value())
-		}
-		pickerHeight := len(opts) + 4
-
-		clearScreen(stdscr)
-		// The settings and the preview are placed together as one block,
-		// centred, with the preview trimmed if the screen is too short.
-		rows, _ := stdscr.MaxYX()
-		var lines []string
-		if !sc.noPreview {
-			lines = sc.preview()
-			if room := rows - pickerHeight - 2; len(lines) > room {
-				if room < 1 {
-					room = 0
+	m := &menuScreen{title: sc.title}
+	m.lines = func() []menuLine {
+		var lines []menuLine
+		for _, o := range sc.options() {
+			o := o
+			press := func() {
+				o.next()
+				if sc.changed != nil {
+					sc.changed(o)
 				}
-				lines = lines[:room]
+				changed = true
+			}
+			text := settingText(o.name+":", o.value())
+			if len(o.values) == 1 {
+				lines = append(lines, opens(text, press))
+			} else {
+				lines = append(lines, setting(text, press))
 			}
 		}
-		block := pickerHeight
-		if len(lines) > 0 {
-			block += len(lines) + 2
-		}
-		top := (rows - block) / 2
-		if top < 1 {
-			top = 1 // 0 would mean "centre" to the list picker
-		}
-		var previewWin *gc.Window
-		if len(lines) > 0 {
-			previewWin = drawPreview(stdscr, lines, top+pickerHeight)
-		}
-
-		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-			Shortcuts:     menuShortcuts(),
-			Title:         sc.title,
-			Buttons:       []string{"Change", "Back"},
-			DefaultButton: 0,
-			ActionButton:  0,
-			Width:         optionsWidth,
-			Height:        pickerHeight,
-			InitialIndex:  selected,
-			Top:           top,
-		}, items)
-		if previewWin != nil {
-			previewWin.Delete()
-		}
-		if err != nil || button != 0 {
-			break
-		}
-		selected = sel
-		if sel >= 0 && sel < len(opts) {
-			opts[sel].next()
-			if sc.changed != nil {
-				sc.changed(opts[sel])
-			}
-			changed = true
-		}
-		if n := len(sc.options()); selected >= n {
-			selected = n - 1
-		}
+		return lines
 	}
-
-	clearScreen(stdscr)
-
-	if changed {
+	if !sc.noPreview {
+		m.preview = sc.preview
+	}
+	m.leave = func() {
+		clearScreen(stdscr)
+		if !changed {
+			return
+		}
 		save := sc.save
 		if save == nil {
 			save = func() error { return saveMenuConfig(cfg) }
@@ -372,6 +335,7 @@ func runOptionsScreen(stdscr *gc.Window, cfg *config.Config, sc optionsScreen) {
 			clearScreen(stdscr)
 		}
 	}
+	m.run(stdscr)
 }
 
 // drawPreview draws a "Preview" box just below the centred options window.

@@ -166,7 +166,7 @@ func gameOrder() gamesdb.GameOrder {
 // the top of the sorted list.
 func systemsSortOptions(stdscr *gc.Window, sysIds []string, cfg *config.Config) {
 	runOptionsScreen(stdscr, cfg, optionsScreen{
-		title: "Menu List Sorting",
+		title: "Menu list sorting",
 		options: func() []*labelOption {
 			opts := []*labelOption{&optGroup}
 			switch optGroup.value() {
@@ -211,13 +211,13 @@ func gameSortOptions(stdscr *gc.Window, cfg *config.Config) {
 	hideText()
 
 	runOptionsScreen(stdscr, cfg, optionsScreen{
-		title: "Game List Sorting",
+		title: "Game list sorting",
 		options: func() []*labelOption {
 			return []*labelOption{&optFolders, &optGameOrder, &optIgnoreThe, &optShowExt, &optGroupDiscs, &hide, &optSearchHidden}
 		},
 		changed: func(o *labelOption) {
 			if o == &hide {
-				tickTags(stdscr, "Hide Games Tagged", &cfg.Menu.HideTags)
+				tickTags(stdscr, "Hide games tagged", &cfg.Menu.HideTags)
 				menuHide = gamesdb.NewTagFilter(cfg.Menu.HideTags)
 				treeDirty = true // rebuild the lists without them
 				hideText()

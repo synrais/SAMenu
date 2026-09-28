@@ -68,7 +68,7 @@ func coresScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 			lines = append(lines, heading(f))
 			for _, r := range byFolder[f] {
 				r := r
-				lines = append(lines, setting(fmt.Sprintf("  %-22s %s", games.DisplayName(r.id)+":", r.core), func() { chooseCore(stdscr, cfg, r.id) }))
+				lines = append(lines, setting(settingIndented(games.DisplayName(r.id)+":", r.core), func() { chooseCore(stdscr, cfg, r.id) }))
 			}
 		}
 		return lines

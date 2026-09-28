@@ -74,19 +74,19 @@ func splitSequence(seq string) []string {
 // biosSkipScreen is Options -> Controls -> BIOS Skip.
 func biosSkipScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 	nameOf := games.DisplayName
-	(&menuScreen{title: "BIOS Skip", wide: true, lines: func() []menuLine {
+	(&menuScreen{title: "BIOS Skip", lines: func() []menuLine {
 		ids := make([]string, 0, len(cfg.AutoInput.Sequences))
 		for id := range cfg.AutoInput.Sequences {
 			ids = append(ids, id)
 		}
 		sort.Slice(ids, func(i, j int) bool { return strings.ToLower(nameOf(ids[i])) < strings.ToLower(nameOf(ids[j])) })
-		lines := []menuLine{setting(fmt.Sprintf("%-22s %s", "Used for:", biosSkipText(cfg)), func() {
+		lines := []menuLine{setting(settingText("Used for:", biosSkipText(cfg)), func() {
 			nextBiosSkip(cfg)
 			saveErr(stdscr, saveBiosWhen(cfg))
 		})}
 		for _, id := range ids {
 			id := id
-			lines = append(lines, setting(fmt.Sprintf("%-22s %s", nameOf(id)+":", strings.Join(splitSequence(cfg.AutoInput.Sequences[id]), ", ")), func() {
+			lines = append(lines, setting(settingText(nameOf(id)+":", strings.Join(splitSequence(cfg.AutoInput.Sequences[id]), ", ")), func() {
 				biosSequenceEditor(stdscr, cfg, properSystemID(id), nameOf(id))
 			}))
 		}
@@ -131,7 +131,7 @@ func addBiosSystem(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 			}))
 		}
 	}
-	(&menuScreen{title: "Add BIOS skip for", lines: func() []menuLine { return lines }}).run(stdscr)
+	(&menuScreen{title: "Add a system", lines: func() []menuLine { return lines }}).run(stdscr)
 }
 
 func saveBiosWhen(cfg *config.Config) error {
@@ -147,7 +147,7 @@ func biosSequenceEditor(stdscr *gc.Window, cfg *config.Config, id, name string) 
 	save := func() {
 		saveErr(stdscr, config.SaveBiosSequence(cfg, id, strings.Join(steps, ", ")))
 	}
-	m := &menuScreen{title: "BIOS skip: " + name, wide: true, selected: len(steps)}
+	m := &menuScreen{title: "BIOS skip: " + name, selected: len(steps)}
 	m.lines = func() []menuLine {
 		var lines []menuLine
 		for i, t := range steps {

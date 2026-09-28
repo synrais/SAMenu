@@ -96,7 +96,7 @@ func pickRandomGame(stdscr *gc.Window, cfg *config.Config, files []MenuFile) err
 func randomGameScreen(stdscr *gc.Window, cfg *config.Config) {
 	show := onOffOption("Show [Pick Random Game]", cfg.Menu.RandomEntry)
 	runOptionsScreen(stdscr, cfg, optionsScreen{
-		title:     "Pick Random Game",
+		title:     "[Pick Random Game]",
 		noPreview: true,
 		options: func() []*labelOption {
 			return []*labelOption{&show}

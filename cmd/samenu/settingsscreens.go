@@ -58,7 +58,10 @@ func attractSettingsScreen(stdscr *gc.Window, cfg *config.Config, sysNames []str
 	systems := labelOption{"Systems", []string{""}, 0}
 	systemsText := func() {
 		on := attractTicks(cfg, ids)
-		systems.values[0] = fmt.Sprintf("%d of %d  (select to choose)", countTicks(on, ids), len(ids))
+		systems.values[0] = fmt.Sprintf("%d of %d", countTicks(on, ids), len(ids))
+		if countTicks(on, ids) == len(ids) {
+			systems.values[0] = "All"
+		}
 	}
 	systemsText()
 
@@ -84,21 +87,21 @@ func attractSettingsScreen(stdscr *gc.Window, cfg *config.Config, sysNames []str
 	orientation.set(a.Orientation)
 
 	runOptionsScreen(stdscr, cfg, optionsScreen{
-		title:     "Attract Mode Settings",
+		title:     "Attract mode settings",
 		noPreview: true,
 		options: func() []*labelOption {
 			return []*labelOption{&playTime, &systems, &selection, &noRepeats, &mixSystems, &oneVersion, &skipTags, &orientation, &mute}
 		},
 		changed: func(o *labelOption) {
 			if o == &systems {
-				tickSystems(stdscr, "Attract Mode Systems", ids, attractTicks(cfg, ids), func(on map[string]bool) {
+				tickSystems(stdscr, "Systems", ids, attractTicks(cfg, ids), func(on map[string]bool) {
 					a.Include = nil
 					a.Exclude = unticked(ids, on)
 				})
 				systemsText()
 			}
 			if o == &skipTags {
-				tickTags(stdscr, "Skip Games Tagged", &a.SkipTags)
+				tickTags(stdscr, "Skip games tagged", &a.SkipTags)
 				skipText()
 			}
 		},
@@ -157,7 +160,7 @@ func detectorSettingsScreen(stdscr *gc.Window, cfg *config.Config) {
 		{onOffOption("Use whitelist", l.UseWhitelist), &l.UseWhitelist},
 	}
 	runOptionsScreen(stdscr, cfg, optionsScreen{
-		title:     "Detector & List Settings",
+		title:     "Detector & list settings",
 		noPreview: true,
 		options: func() []*labelOption {
 			out := make([]*labelOption, len(opts))
@@ -208,7 +211,7 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) (added []games
 	}
 
 	removed = map[string]bool{}
-	tickSystems(stdscr, "Games Database Systems", ids, on, func(on map[string]bool) {
+	tickSystems(stdscr, "Database systems", ids, on, func(on map[string]bool) {
 		cfg.Database.Exclude = unticked(ids, on)
 		if err := config.SaveValues(cfg.Path, "Database", [][2]string{
 			{"Exclude", strings.Join(cfg.Database.Exclude, ", ")},
@@ -515,8 +518,12 @@ func idleMinutes(o labelOption) int {
 // -------- Name tags --------
 
 // tagsText is a tag setting's value on an options screen.
+// tagsText shows ticked name tags: "Beta, Proto", or "none".
 func tagsText(tags []string) string {
-	return fmt.Sprintf("%d of %d  (select to choose)", len(gamesdb.NewTagFilter(tags).Names()), len(gamesdb.Tags))
+	if names := gamesdb.NewTagFilter(tags).Names(); len(names) > 0 {
+		return strings.Join(names, ", ")
+	}
+	return "none"
 }
 
 // tickTags edits a list of name tags (Beta, Proto...) with tick boxes.
