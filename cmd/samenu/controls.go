@@ -7,6 +7,7 @@ import (
 	gc "github.com/rthornton128/goncurses"
 
 	"github.com/synrais/SAMenu/pkg/config"
+	"github.com/synrais/SAMenu/pkg/curses"
 )
 
 // -------------------------
@@ -71,6 +72,21 @@ func menuShortcutsFor(acts ...string) map[gc.Key]string {
 		out[actionKey(act)] = buttonFor[act]
 	}
 	return out
+}
+
+// setMenuControls puts the menu's actions in use, the letter jumps for
+// every list.
+func setMenuControls(m map[string][]string) {
+	menuControls = m
+	curses.LetterKeys = map[gc.Key]int{}
+	for act, dir := range map[string]int{"prevletter": -1, "nextletter": 1} {
+		for _, n := range m[act] {
+			for _, k := range keysFor(n) {
+				curses.LetterKeys[k] = dir
+			}
+		}
+		curses.LetterKeys[actionKey(act)] = dir
+	}
 }
 
 // menuShortcuts are the systems list's shortcuts: Search and Options.

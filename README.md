@@ -106,12 +106,15 @@ SAMenu works with a keyboard or a controller. MiSTer turns controller buttons in
 | **Y** | Tab | Search |
 | **X** | Space | Options |
 | **L** / **R** | Page Up / Page Down | Page up / down |
+| (map L2 / R2) | `[` / `]` | Previous / next letter |
 
 In a game list, **Y** (Tab) marks the highlighted game as a favourite, and in [Favourites] **X** (Space) removes one (see [History and favourites](#history-and-favourites)). Every list wraps around with Up and Down: Up at the top goes to the bottom, and Down at the bottom goes back to the first game (skipping **[Pick Random Game]**, so it's only ever chosen on purpose). **L** and **R** move a page at a time and stop at the ends: on the last page R goes to the last line, on the first page L goes to the first game (on a list shorter than a page, straight to the top or bottom).
 
+**Previous letter** and **Next letter** jump any list by the first letter of its lines: next goes to the first title of the next letter, previous back to the start of the current letter (or, from there, the start of the one before). Numbers count as one letter, and a leading `* ` or `[System]` is skipped. They stop at the ends and never land on [Pick Random Game]. The keyboard has them on `[` and `]`; for a controller, map L2 and R2 (or any buttons) to them in **Options → Controls → Games Menu**.
+
 **Menu Layout** can swap A and B, **Japanese** style: B confirms, A goes back.
 
-All of these can be remapped in **Options → Controls → Games Menu**, each action for the place it applies: Search and Options on the systems list, Favourite in game lists, Remove in [Favourites]. So one button can do different things in different places. Choose an action and press the key or button for it (a bound one removes it). Controller buttons MiSTer doesn't pass on as keys (Start, Select, L2, R2…) work too: SAMenu reads those itself.
+All of these can be remapped in **Options → Controls → Games Menu**, each action for the place it applies: Search and Options on the systems list, Favourite in game lists, Remove in [Favourites], Previous and Next letter in every list. So one button can do different things in different places. Choose an action and press the key or button for it (a bound one removes it). Controller buttons MiSTer doesn't pass on as keys (Start, Select, L2, R2…) work too: SAMenu reads those itself.
 
 ### Systems and folders
 
@@ -766,6 +769,8 @@ Search    = tab              ; systems list
 Options   = space            ; systems list
 Favourite = tab              ; game lists
 Remove    = space, pad:back  ; [Favourites]
+PrevLetter = [, pad:lefttrigger   ; any list
+NextLetter = ], pad:righttrigger  ; any list
 ```
 
 </details>

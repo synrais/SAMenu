@@ -10,18 +10,25 @@ import (
 // DefaultMenuControls: the games menu's actions and their inputs. Each
 // applies in one place, so the same button can do different things: on
 // the systems list Y (tab) = Search and X (space) = Options; in a game
-// list Y = Favourite; in [Favourites] X (or Y) = Remove. An input is a key
+// list Y = Favourite; in [Favourites] X (or Y) = Remove. Previous and Next
+// letter work in every list (no controller button by default: map L2/R2). An input is a key
 // name ("tab"), or "pad:<name>" for a controller button MiSTer doesn't pass
 // on as a key (Start, Select, L2...), read by SAMenu's input detectors.
 var DefaultMenuControls = map[string][]string{
-	"search":    {"tab"},
-	"options":   {"space"},
-	"favourite": {"tab"},
-	"remove":    {"space"},
+	"search":     {"tab"},
+	"options":    {"space"},
+	"favourite":  {"tab"},
+	"remove":     {"space"},
+	"prevletter": {"["},
+	"nextletter": {"]"},
 }
 
 // MenuActions are the games menu's actions, in the order they're listed.
-var MenuActions = []string{"search", "options", "favourite", "remove"}
+var MenuActions = []string{"search", "options", "favourite", "remove", "prevletter", "nextletter"}
+
+// menuActionKeys are the actions' names in [Controls.Menu].
+var menuActionKeys = map[string]string{"search": "Search", "options": "Options", "favourite": "Favourite",
+	"remove": "Remove", "prevletter": "PrevLetter", "nextletter": "NextLetter"}
 
 // Attract mode actions ("back" is the previous game). Favourite, mute and
 // screenshot act without leaving the game.
@@ -68,7 +75,7 @@ func DefaultAttractControlsCopy() map[string]map[string]string {
 func SaveMenuControls(cfg *Config) error {
 	var values [][2]string
 	for _, act := range MenuActions {
-		values = append(values, [2]string{act, strings.Join(cfg.MenuControls[act], ", ")})
+		values = append(values, [2]string{menuActionKeys[act], strings.Join(cfg.MenuControls[act], ", ")})
 	}
 	return SaveValues(cfg.Path, "Controls.Menu", values)
 }

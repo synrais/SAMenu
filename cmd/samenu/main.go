@@ -820,7 +820,7 @@ func main() {
 	}
 	applyMenuConfig(cfg.Menu)
 	applyAZConfig(cfg.Menu)
-	menuControls = cfg.MenuControls
+	setMenuControls(cfg.MenuControls)
 	if padBindingsInUse() {
 		startInputs() // controller buttons mapped to menu actions
 	}

@@ -59,7 +59,7 @@ func controlsScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 				previous := copyBinds(cfg.AttractControls)
 				cfg.AttractControls = config.DefaultAttractControlsCopy()
 				cfg.MenuControls = config.DefaultMenuControlsCopy()
-				menuControls = cfg.MenuControls
+				setMenuControls(cfg.MenuControls)
 				cfg.MenuLayout = "Western"
 				curses.SwapConfirmBack = false
 				saveErr(stdscr, config.SaveMenuLayout(cfg), config.SaveMenuControls(cfg), config.SaveAttractControls(cfg, previous))
@@ -80,10 +80,12 @@ func saveErr(stdscr *gc.Window, errs ...error) {
 
 // menuActionNames name the games menu's actions, with where they apply.
 var menuActionNames = map[string]string{
-	"search":    "Search (main menu)",
-	"options":   "Options (main menu)",
-	"favourite": "Favourite (game lists)",
-	"remove":    "Remove ([Favourites])",
+	"search":     "Search (main menu)",
+	"options":    "Options (main menu)",
+	"favourite":  "Favourite (game lists)",
+	"remove":     "Remove ([Favourites])",
+	"prevletter": "Previous letter (lists)",
+	"nextletter": "Next letter (lists)",
 }
 
 // gamesMenuControls is Controls -> Games Menu: the layout, and the menu's
@@ -100,7 +102,7 @@ func gamesMenuControls(stdscr *gc.Window, cfg *config.Config) {
 					return
 				}
 				cfg.MenuControls[act] = toggleInput(cfg.MenuControls[act], in)
-				menuControls = cfg.MenuControls
+				setMenuControls(cfg.MenuControls)
 				saveErr(stdscr, config.SaveMenuControls(cfg))
 				if padBindingsInUse() {
 					startInputs() // controller buttons for the menu
@@ -117,7 +119,7 @@ func gamesMenuControls(stdscr *gc.Window, cfg *config.Config) {
 			}),
 			restoreDefaults(func() {
 				cfg.MenuControls = config.DefaultMenuControlsCopy()
-				menuControls = cfg.MenuControls
+				setMenuControls(cfg.MenuControls)
 				cfg.MenuLayout = "Western"
 				curses.SwapConfirmBack = false
 				saveErr(stdscr, config.SaveMenuLayout(cfg), config.SaveMenuControls(cfg))

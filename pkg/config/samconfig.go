@@ -544,7 +544,7 @@ func keyOnLine(line string) (string, int, bool) {
 }
 
 // loadControls reads [Controls.Menu] (Layout, and the games menu's
-// actions: search, options, favourite, remove = inputs) and the
+// actions: search, options, favourite, remove, prevletter, nextletter = inputs) and the
 // [InputDetector.X] sections. Anything missing uses the defaults.
 func loadControls(cfg *Config, file *ini.File) {
 	cfg.MenuControls = DefaultMenuControlsCopy()

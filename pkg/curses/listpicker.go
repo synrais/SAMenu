@@ -331,6 +331,23 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			continue
 		}
 
+		// A letter jump puts the letter's first line at the top of the page.
+		if dir, ok := LetterKeys[ch]; ok {
+			selectedButton = opts.ActionButton
+			if i := letterJump(items, selectedItem, dir, first, isHeader); i != selectedItem {
+				selectedItem = i
+				viewStart = i
+				if viewStart > len(items)-viewHeight {
+					viewStart = len(items) - viewHeight
+				}
+				if viewStart < 0 {
+					viewStart = 0
+				}
+				showSelected()
+			}
+			continue
+		}
+
 		if label, ok := opts.Shortcuts[ch]; ok {
 			for i, b := range opts.Buttons {
 				if b != "" && strings.EqualFold(b, label) {
