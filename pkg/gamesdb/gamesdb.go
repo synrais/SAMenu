@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
@@ -40,9 +41,10 @@ type IndexStatus struct {
 	Total    int
 	Step     int
 	SystemId string // while Waiting: a message to show instead
-	Files    int
+	Files    int    // games found so far
 	Waiting  bool   // another build is running; this one waits for it
 	Doing    string // instead of "Indexing <system>", e.g. "Saving..."
+	Skipped  bool   // SystemId is left out of the database: not scanned
 }
 
 type SearchResult struct {
@@ -158,9 +160,7 @@ func lockBuild(waiting func()) (unlock func(), waited bool) {
 
 func NewNamesIndex(cfg *config.Config, systems []games.System, update func(IndexStatus)) error {
 	// One build at a time. If another was running, use what it built.
-	unlock, waited := lockBuild(func() {
-		update(IndexStatus{Waiting: true, SystemId: "Waiting for another database build to finish..."})
-	})
+	unlock, waited := lockBuild(func() { update(IndexStatus{Waiting: true}) })
 	defer unlock()
 	if waited {
 		cacheLoaded = false
@@ -185,9 +185,9 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 	for _, sys := range systems {
 		status.SystemId = sys.Id
 		status.Step++
+		status.Skipped = excluded[strings.ToLower(sys.Id)]
 		update(status)
-
-		if excluded[strings.ToLower(sys.Id)] {
+		if status.Skipped {
 			continue
 		}
 		files, err := scanSystem(cfg, finder, sys, rules)
@@ -199,6 +199,8 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 	}
 
 	status.Step++
+	status.Skipped = false
+	status.Doing = "Saving the games database..."
 	update(status)
 
 	FillRotations(allFiles)
@@ -254,17 +256,29 @@ func scanSystem(cfg *config.Config, finder *games.SystemPathFinder, sys games.Sy
 // copied in or deleted since). Games stay in the systems list's order, as a
 // full build has them.
 func UpdateSystems(cfg *config.Config, added []games.System, removed map[string]bool, update func(IndexStatus)) error {
-	unlock, _ := lockBuild(func() {
-		update(IndexStatus{Waiting: true, SystemId: "Waiting for another database build to finish..."})
-	})
+	unlock, waited := lockBuild(func() { update(IndexStatus{Waiting: true}) })
 	defer unlock()
 
-	status := IndexStatus{Total: len(added) + 2, Step: 1, Doing: "Removing systems..."}
-	update(status)
-	cacheLoaded = false // what's on the SD card now, in case another build changed it
+	status := IndexStatus{Total: len(added) + 2, Step: 1}
+	// The database the menu already has, unless another build just ran (or
+	// nothing's loaded yet): then it's read from the SD card again.
+	if waited || !cacheLoaded {
+		status.Doing = "Reading the games database..."
+		update(status)
+		cacheLoaded = false
+	}
 	current, err := loadAll()
 	if err != nil {
 		return err
+	}
+	if len(removed) > 0 {
+		var names []string
+		for id := range removed {
+			names = append(names, games.DisplayName(id))
+		}
+		sort.Strings(names)
+		status.Doing = "Removing " + strings.Join(names, ", ") + "..."
+		update(status)
 	}
 	rules := NewRuleSet(cfg.DatabaseRules)
 	finder := games.NewSystemPathFinder(cfg)
@@ -291,7 +305,7 @@ func UpdateSystems(cfg *config.Config, added []games.System, removed map[string]
 	}
 
 	status.Step++
-	status.Doing = "Saving..."
+	status.Doing = "Saving the games database..."
 	update(status)
 	var all []FileInfo
 	for _, sys := range games.AllSystems() {

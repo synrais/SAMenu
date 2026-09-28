@@ -41,17 +41,28 @@ func remoteCommand(cmd string) {
 
 // buildDatabase indexes the games, printing progress.
 func buildDatabase(cfg *config.Config) ([]MenuFile, error) {
-	prevSystem, prevTotal, done := "", 0, 0
+	prevSystem, prevTotal, prevSkipped, done := "", 0, false, 0
 	if err := gamesdb.NewNamesIndex(cfg, games.AllSystems(), func(s gamesdb.IndexStatus) {
 		if s.Waiting {
 			fmt.Println("[DB] Another database build is running, waiting for it to finish...")
 			return
 		}
+		// Each system's line is printed when the next one starts (or the
+		// build moves on to saving), with the games it had.
 		if prevSystem != "" {
 			done++
-			fmt.Printf("[DB] %d/%d %s: %d games (total %d)\n", done, s.Total-1, prevSystem, s.Files-prevTotal, s.Files)
+			if prevSkipped {
+				fmt.Printf("[DB] %d/%d %s: left out\n", done, s.Total-1, prevSystem)
+			} else {
+				fmt.Printf("[DB] %d/%d %s: %d games (total %d)\n", done, s.Total-1, prevSystem, s.Files-prevTotal, s.Files)
+			}
 		}
-		prevSystem, prevTotal = s.SystemId, s.Files
+		if s.Doing != "" {
+			fmt.Println("[DB] " + s.Doing)
+			prevSystem = ""
+			return
+		}
+		prevSystem, prevTotal, prevSkipped = s.SystemId, s.Files, s.Skipped
 	}); err != nil {
 		return nil, err
 	}

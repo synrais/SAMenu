@@ -105,6 +105,11 @@ func indexWindow(stdscr *gc.Window, build func(update func(gamesdb.IndexStatus))
 	var mu sync.Mutex
 	var progress gamesdb.IndexStatus
 
+	// What's shown: "Indexing SNES..." with the games found so far while
+	// systems are scanned; otherwise just what's happening (waiting for
+	// another build, reading, removing, saving). A system left out of the
+	// database isn't shown: the line before it stays.
+	sysText, showCount := "Getting ready...", false
 	err = withSpinner(func() error {
 		return build(func(is gamesdb.IndexStatus) {
 			mu.Lock()
@@ -116,21 +121,29 @@ func indexWindow(stdscr *gc.Window, build func(update func(gamesdb.IndexStatus))
 		p := progress
 		mu.Unlock()
 
+		switch {
+		case p.Waiting:
+			sysText, showCount = "Waiting for another database build to finish...", false
+		case p.Doing != "":
+			sysText, showCount = p.Doing, false
+		case p.SystemId != "" && !p.Skipped:
+			sysText, showCount = fmt.Sprintf("Indexing %s...", games.DisplayName(p.SystemId)), true
+		}
+
 		clearText()
 		win.MovePrint(1, width-3, spin)
-
-		countText := fmt.Sprintf("%6d files", p.Files)
-		countCol := width - len(countText) - 6
-		win.MovePrint(1, countCol, countText)
-
-		sysText := fmt.Sprintf("Indexing %s...", games.DisplayName(p.SystemId))
-		if p.Doing != "" {
-			sysText = p.Doing
+		textWidth := width - 10
+		if showCount && p.Files > 0 { // the games found so far, once there are any
+			countText := fmt.Sprintf("%6d games", p.Files)
+			countCol := width - len(countText) - 6
+			win.MovePrint(1, countCol, countText)
+			textWidth = countCol - 4
 		}
-		if maxSysWidth := countCol - 10; len(sysText) > maxSysWidth {
-			sysText = sysText[:maxSysWidth]
+		text := sysText
+		if len(text) > textWidth {
+			text = text[:textWidth-3] + "..."
 		}
-		win.MovePrint(1, 2, sysText)
+		win.MovePrint(1, 2, text)
 
 		drawProgressBar(p.Step, p.Total)
 		win.NoutRefresh()
