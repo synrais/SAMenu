@@ -35,6 +35,7 @@ func Setup() (*gc.Window, error) {
 	gc.CBreak(true)
 	gc.Cursor(0)
 
+	noLineShifts()
 	gc.StartColor()
 	gc.InitPair(1, gc.C_BLACK, gc.C_WHITE)
 

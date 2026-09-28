@@ -1,0 +1,4 @@
+Script started on 2026-09-28 13:32:56+00:00 [COMMAND="./samenu" TERM="linux" TTY="/dev/pts/2" COLUMNS="160" LINES="50"]
+bash: line 1: ./samenu: No such file or directory
+
+Script done on 2026-09-28 13:32:57+00:00 [COMMAND_EXIT_CODE="127"]

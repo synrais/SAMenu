@@ -325,82 +325,113 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (button 
 			}
 		}
 
-		switch ch {
-		case gc.KEY_DOWN:
-			if opts.SnapToAction {
-				selectedButton = opts.ActionButton
-			}
-			if selectedItem < len(items)-1 {
-				selectedItem++
-				settle(1)
-			} else {
-				selectedItem = 0 // past the bottom: back to the top
-				settle(1)
-			}
-			showSelected()
-		case gc.KEY_UP:
-			if opts.SnapToAction {
-				selectedButton = opts.ActionButton
-			}
-			if selectedItem > 0 {
-				selectedItem--
-				settle(-1)
-			} else {
-				selectedItem = len(items) - 1 // past the top: round to the bottom
-				settle(-1)
-			}
-			showSelected()
-		case gc.KEY_LEFT:
-			if selectedButton > 0 {
-				selectedButton--
-			} else {
-				selectedButton = len(opts.Buttons) - 1
-			}
-		case gc.KEY_RIGHT:
-			if selectedButton < len(opts.Buttons)-1 {
-				selectedButton++
-			} else {
-				selectedButton = 0
-			}
-		case gc.KEY_PAGEUP:
-			if opts.SnapToAction {
-				selectedButton = opts.ActionButton
-			}
-			pageUp()
-			settle(1)
-			showSelected()
-		case gc.KEY_PAGEDOWN:
-			if opts.SnapToAction {
-				selectedButton = opts.ActionButton
-			}
-			pageDown()
-			settle(-1)
-			showSelected()
-		case gc.KEY_ENTER, 10, 13:
-			if selectedButton == opts.ActionButton {
-				return selectedButton, selectedItem, nil
-			} else if selectedButton < len(opts.Buttons) && opts.Buttons[selectedButton] == "PgUp" {
+		// A held button's repeats already waiting are taken now too: the list
+		// moves for all of them, then draws once (see heldRepeats).
+		for n := heldRepeats(win, ch); n > 0; n-- {
+			switch ch {
+			case gc.KEY_DOWN:
+				if opts.SnapToAction {
+					selectedButton = opts.ActionButton
+				}
+				if selectedItem < len(items)-1 {
+					selectedItem++
+					settle(1)
+				} else {
+					selectedItem = 0 // past the bottom: back to the top
+					settle(1)
+				}
+				showSelected()
+			case gc.KEY_UP:
+				if opts.SnapToAction {
+					selectedButton = opts.ActionButton
+				}
+				if selectedItem > 0 {
+					selectedItem--
+					settle(-1)
+				} else {
+					selectedItem = len(items) - 1 // past the top: round to the bottom
+					settle(-1)
+				}
+				showSelected()
+			case gc.KEY_LEFT:
+				if selectedButton > 0 {
+					selectedButton--
+				} else {
+					selectedButton = len(opts.Buttons) - 1
+				}
+			case gc.KEY_RIGHT:
+				if selectedButton < len(opts.Buttons)-1 {
+					selectedButton++
+				} else {
+					selectedButton = 0
+				}
+			case gc.KEY_PAGEUP:
+				if opts.SnapToAction {
+					selectedButton = opts.ActionButton
+				}
 				pageUp()
 				settle(1)
 				showSelected()
-			} else if selectedButton < len(opts.Buttons) && opts.Buttons[selectedButton] == "PgDn" {
+			case gc.KEY_PAGEDOWN:
+				if opts.SnapToAction {
+					selectedButton = opts.ActionButton
+				}
 				pageDown()
 				settle(-1)
 				showSelected()
-			} else {
-				if selectedButton < len(opts.Buttons) {
-					for _, b := range opts.ItemButtons {
-						if strings.EqualFold(b, opts.Buttons[selectedButton]) {
-							return selectedButton, selectedItem, nil
+			case gc.KEY_ENTER, 10, 13:
+				if selectedButton == opts.ActionButton {
+					return selectedButton, selectedItem, nil
+				} else if selectedButton < len(opts.Buttons) && opts.Buttons[selectedButton] == "PgUp" {
+					pageUp()
+					settle(1)
+					showSelected()
+				} else if selectedButton < len(opts.Buttons) && opts.Buttons[selectedButton] == "PgDn" {
+					pageDown()
+					settle(-1)
+					showSelected()
+				} else {
+					if selectedButton < len(opts.Buttons) {
+						for _, b := range opts.ItemButtons {
+							if strings.EqualFold(b, opts.Buttons[selectedButton]) {
+								return selectedButton, selectedItem, nil
+							}
 						}
 					}
+					return selectedButton, -1, nil
 				}
-				return selectedButton, -1, nil
 			}
 		}
 	}
 
 	return -1, -1, nil
+}
+
+// heldRepeats counts a movement key and its repeats already waiting,
+// taking them from the input. A held button (a shoulder button's Page Down)
+// repeats faster than MiSTer's console can draw a page, so drawing after
+// each one fell behind, then caught up in a burst, and carried on after the
+// button was let go. The first other key is put back. Other keys count once.
+func heldRepeats(win *gc.Window, ch gc.Key) int {
+	switch ch {
+	case gc.KEY_UP, gc.KEY_DOWN, gc.KEY_PAGEUP, gc.KEY_PAGEDOWN:
+	default:
+		return 1
+	}
+	n := 1
+	win.Timeout(0)
+	defer win.Timeout(100)
+	for {
+		next := win.GetChar()
+		if next == ch {
+			n++
+			continue
+		}
+		if next != 0 {
+			gc.UnGetChar(gc.Char(next))
+		}
+		return n
+	}
 }
 
 // cutBytes is s[from:to], moved inwards so it starts and ends on whole
