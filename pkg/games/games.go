@@ -40,9 +40,10 @@ func MatchSystemFile(system System, path string) bool {
 		return false
 	}
 
+	lower := strings.ToLower(path) // once, not once per extension
 	for _, args := range system.Slots {
 		for _, ext := range args.Exts {
-			if strings.HasSuffix(strings.ToLower(path), ext) {
+			if strings.HasSuffix(lower, ext) {
 				return true
 			}
 		}
@@ -147,7 +148,7 @@ func GetFiles(systemId string, path string) ([]string, error) {
 			return err
 		}
 
-		if strings.HasSuffix(strings.ToLower(path), ".zip") {
+		if len(path) >= 4 && strings.EqualFold(path[len(path)-4:], ".zip") {
 			// zip files
 			zipFiles, err := utils.ListZip(path)
 			if err != nil {

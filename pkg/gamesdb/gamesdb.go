@@ -180,6 +180,7 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 	// [Database] Exclude drops whole systems; [Database.X] rules drop games.
 	excluded, _ := games.ResolveSystems(cfg.Database.Exclude)
 	rules := NewRuleSet(cfg.DatabaseRules)
+	finder := games.NewSystemPathFinder(cfg) // each folder read once, for all systems
 
 	for _, sys := range systems {
 		status.SystemId = sys.Id
@@ -189,7 +190,7 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 		if excluded[strings.ToLower(sys.Id)] {
 			continue
 		}
-		files, err := scanSystem(cfg, sys, rules)
+		files, err := scanSystem(cfg, finder, sys, rules)
 		if err != nil {
 			return err
 		}
@@ -214,9 +215,9 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 
 // scanSystem finds one system's games in all its folders, as the database
 // holds them.
-func scanSystem(cfg *config.Config, sys games.System, rules RuleSet) ([]FileInfo, error) {
+func scanSystem(cfg *config.Config, finder *games.SystemPathFinder, sys games.System, rules RuleSet) ([]FileInfo, error) {
 	var out []FileInfo
-	for _, sp := range games.GetSystemPaths(cfg, []games.System{sys}) {
+	for _, sp := range finder.Paths(sys) {
 		pathFiles, err := games.GetFiles(sys.Id, sp.Path)
 		if err != nil {
 			return nil, fmt.Errorf("error getting files: %v", err)
@@ -266,6 +267,7 @@ func UpdateSystems(cfg *config.Config, added []games.System, removed map[string]
 		return err
 	}
 	rules := NewRuleSet(cfg.DatabaseRules)
+	finder := games.NewSystemPathFinder(cfg)
 
 	bySystem := map[string][]FileInfo{} // lower-case system ID -> games
 	for _, f := range current {
@@ -279,7 +281,7 @@ func UpdateSystems(cfg *config.Config, added []games.System, removed map[string]
 		status.SystemId = sys.Id
 		status.Step++
 		update(status)
-		files, err := scanSystem(cfg, sys, rules)
+		files, err := scanSystem(cfg, finder, sys, rules)
 		if err != nil {
 			return err
 		}

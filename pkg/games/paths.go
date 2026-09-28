@@ -171,40 +171,87 @@ type PathResult struct {
 
 // GetSystemPaths returns all possible paths for each system.
 func GetSystemPaths(cfg *config.Config, systems []System) []PathResult {
+	finder := NewSystemPathFinder(cfg)
 	var matches []PathResult
-
-	gamesFolders := GetGamesFolders(cfg)
 	for _, system := range systems {
-		seen := make(map[string]bool)
-		for _, gamesFolder := range gamesFolders {
-			gf, err := FindFile(gamesFolder)
+		matches = append(matches, finder.Paths(system)...)
+	}
+	return matches
+}
+
+// SystemPathFinder finds systems' folders, as GetSystemPaths does, reading
+// each folder's listing only once: a database build looks up every system's
+// folder names in the same games folders (on every drive), and each miss
+// used to read the whole listing again, thousands of times a build (each a
+// round trip on a network drive). Use one for a whole build.
+type SystemPathFinder struct {
+	cfg          *config.Config
+	gamesFolders []string
+	listings     map[string][]string // folder -> its entries' names (nil: unreadable)
+}
+
+func NewSystemPathFinder(cfg *config.Config) *SystemPathFinder {
+	return &SystemPathFinder{cfg: cfg, gamesFolders: GetGamesFolders(cfg), listings: map[string][]string{}}
+}
+
+// Paths returns all of a system's folders.
+func (f *SystemPathFinder) Paths(system System) []PathResult {
+	var matches []PathResult
+	seen := make(map[string]bool)
+	for _, gamesFolder := range f.gamesFolders {
+		gf, err := f.find(gamesFolder)
+		if err != nil {
+			continue
+		}
+		for _, folder := range system.Folder {
+			path, err := f.find(filepath.Join(gf, folder))
 			if err != nil {
 				continue
 			}
-
-			for _, folder := range system.Folder {
-				systemFolder := filepath.Join(gf, folder)
-				path, err := FindFile(systemFolder)
-				if err != nil {
-					continue
-				}
-
-				seen[path] = true
-				matches = append(matches, PathResult{Path: path})
-			}
-		}
-
-		// Extra folders just for this system (system_folder in SAMenu.ini).
-		for _, folder := range SystemFolders(cfg, system) {
-			if info, err := os.Stat(folder); err != nil || !info.IsDir() || seen[folder] {
-				continue
-			}
-			seen[folder] = true
-			matches = append(matches, PathResult{Path: folder})
+			seen[path] = true
+			matches = append(matches, PathResult{Path: path})
 		}
 	}
 
+	// Extra folders just for this system (system_folder in SAMenu.ini).
+	for _, folder := range SystemFolders(f.cfg, system) {
+		if info, err := os.Stat(folder); err != nil || !info.IsDir() || seen[folder] {
+			continue
+		}
+		seen[folder] = true
+		matches = append(matches, PathResult{Path: folder})
+	}
 	return matches
+}
+
+// find is FindFile from the folder listings read so far: the name as it
+// is, or else the same name in different capitals.
+func (f *SystemPathFinder) find(path string) (string, error) {
+	parent, name := filepath.Dir(path), filepath.Base(path)
+	names, read := f.listings[parent]
+	if !read {
+		if entries, err := os.ReadDir(parent); err == nil {
+			names = make([]string, len(entries))
+			for i, e := range entries {
+				names[i] = e.Name()
+			}
+		}
+		f.listings[parent] = names
+	}
+	if names == nil {
+		return "", fmt.Errorf("can't read %s", parent)
+	}
+	for _, n := range names {
+		if n == name {
+			return path, nil
+		}
+	}
+	for _, n := range names {
+		if len(n) == len(name) && strings.EqualFold(n, name) {
+			return filepath.Join(parent, n), nil
+		}
+	}
+	return "", fmt.Errorf("file match not found: %s", path)
 }
 
 // GetActiveSystemPaths returns the active path for each system.
