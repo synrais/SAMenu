@@ -9,6 +9,7 @@ import (
 	gc "github.com/rthornton128/goncurses"
 
 	"github.com/synrais/SAMenu/pkg/config"
+	"github.com/synrais/SAMenu/pkg/curses"
 	"github.com/synrais/SAMenu/pkg/input"
 	"github.com/synrais/SAMenu/pkg/mister"
 )
@@ -348,9 +349,8 @@ func flushKeys(stdscr *gc.Window) {
 // opened is when the input test screen opened: long names scroll from then.
 var opened = time.Now()
 
-// scrollFit fits text to a width, padded, or, if it's too long, scrolls it
-// the way the lists do: after a second on its start, one character every
-// 200ms, looping with a three-space gap.
+// scrollFit fits text to a width, padded, or, if it's too long, bounces it
+// the way the lists do (see curses.BounceOffset).
 func scrollFit(text string, width int, t time.Duration) string {
 	if width <= 0 {
 		return ""
@@ -361,10 +361,6 @@ func scrollFit(text string, width int, t time.Duration) string {
 	if len(r) <= width {
 		return text + strings.Repeat(" ", width-len(r))
 	}
-	loop := append(r, []rune("   ")...)
-	offset := 0
-	if t > time.Second {
-		offset = int((t-time.Second)/(200*time.Millisecond)) % len(loop)
-	}
-	return string(append(loop, loop...)[offset : offset+width])
+	offset := curses.BounceOffset(len(r), width, t)
+	return string(r[offset : offset+width])
 }

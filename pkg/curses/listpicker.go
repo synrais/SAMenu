@@ -86,10 +86,9 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 	}
 	defer func() { scrollMemory[scrollKey] = viewStart }()
 
-	// marquee tracking
+	// the highlighted line, and when it was highlighted (see BounceOffset)
 	currentSelection := -1
-	scrollOffset := 0
-	lastScroll := time.Now()
+	selectedAt := time.Now()
 
 	top := -1
 	if opts.Top > 0 {
@@ -198,17 +197,10 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 	var ch gc.Key
 
 	for ch != gc.KEY_ESC {
-		// reset scroll when selection changes
+		// A long highlighted line bounces from when it was highlighted.
 		if selectedItem != currentSelection {
 			currentSelection = selectedItem
-			scrollOffset = 0
-			lastScroll = time.Now()
-		}
-
-		// advance marquee scroll every 200ms
-		if time.Since(lastScroll) > 200*time.Millisecond {
-			scrollOffset++
-			lastScroll = time.Now()
+			selectedAt = time.Now()
 		}
 
 		// list items
@@ -230,18 +222,15 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			display := item
 			selected := viewStart+i == selectedItem
 
-			// Long lines: the highlighted one scrolls, the others end in
-			// "...". Measured in bytes, as the screen library counts them,
-			// but never cut in the middle of an accented or other
-			// non-English letter (see cutBytes).
+			// Long lines: the highlighted one bounces (see BounceOffset), the
+			// others end in "...". Measured in bytes, as the screen library
+			// counts them, but never cut in the middle of an accented or
+			// other non-English letter (see cutBytes).
 			scrolling := len(item) > textWidth
 			if scrolling {
 				if selected {
-					// build marquee string with gap
-					marquee := item + "   "
-					marquee = marquee + marquee
-					offset := scrollOffset % (len(item) + 3)
-					display = cutBytes(marquee, offset, offset+textWidth)
+					offset := BounceOffset(len(item), textWidth, time.Since(selectedAt))
+					display = cutBytes(item, offset, offset+textWidth)
 				} else {
 					display = cutBytes(item, 0, textWidth-3) + "..."
 				}
@@ -252,8 +241,8 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			case !selected:
 				win.MovePrint(i+1, 2, display)
 			case scrolling:
-				// A scrolling line is highlighted across the whole width,
-				// so its gaps don't show as holes as it moves.
+				// A bouncing line is highlighted across the whole width, so
+				// the highlight doesn't change shape as it moves.
 				win.ColorOn(1)
 				win.MovePrint(i+1, 2, display+strings.Repeat(" ", textWidth-len(display)))
 				win.ColorOff(1)
