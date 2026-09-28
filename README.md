@@ -309,11 +309,9 @@ Attract mode can also **mute** the MiSTer while it runs (`Mute = true`). The sou
 - **Sticks:** bars for the last controller used, with `|` marking where a push starts to count, so drift and dead zones are easy to see.
 - **Inputs:** every press, newest first, with the time, the device's port, the input's name (as used in `SAMenu.ini`) and what attract mode would do with it. Inputs the stick settings filtered out are shown dimmed, with why (`ignored: too short`).
 
-Hold **A / Enter** or **B / Esc** for 2 seconds to leave, then let go. Tapping them just shows them, so any button can be tried.
+Hold **Cross / B / Enter** or **Circle / A / Esc** for 2 seconds to leave, then let go. Tapping them just shows them, so any button can be tried.
 
 Over SSH, **`SAMenu.sh -inputs`** prints the same names, for example `joystick (8BitDo Pro 2): dpleft`.
-
-A controller's face buttons are named as MiSTer names them, by position: **`a` right, `b` bottom, `x` top, `y` left**. So the bottom button (Cross on a PlayStation pad, A on an Xbox pad) is `b`, as it is in MiSTer's own menu.
 
 ### Game lists
 
@@ -365,7 +363,7 @@ Sequence = 10, a
 - **Used for:** Off, Attract (games attract mode launches), Menu (games you launch) or Both (`[BiosSkip] Attract` and `Menu`).
 - **Each system with a sequence**, and **Add a system...**. Choose one to edit its steps: **Add a press** (press the button or key on your controller or keyboard) or **Add a wait**, and choose a step to remove it.
 
-A press is saved by the button's **position**, with MiSTer's names, the same as the Input test's (`a` right, `b` bottom, `x` top, `y` left). So pressing your bottom button (Cross on a PlayStation pad) saves `b`, and each step shows it, like `Press b (bottom)`. A button with no virtual pad name gives you a list to pick from.
+A press is saved by the button's **position**, since the virtual pad's names are Nintendo style (`a` right, `b` bottom, `x` top, `y` left). So pressing your bottom button (Cross on a PlayStation pad) saves `b`, and each step shows it, like `Press b (bottom)`. A button with no virtual pad name gives you a list to pick from.
 
 Test a sequence on a running game with `SAMenu.sh -press start`.
 
@@ -629,7 +627,7 @@ Override any of these per system or group, for example `[StaticDetector.PSX]`. A
 <details>
 <summary><b>[InputDetector]</b> and <b>[InputDetector.Keyboard / Mouse / Joystick]</b>: attract mode controls</summary>
 
-`[InputDetector]` switches each kind of input on or off: `Mouse`, `Keyboard` and `Joystick`, plus the analog sticks: `Sticks` (true/false) and `StickHoldMs` (how long a stick must stay pushed to count, 75 by default). `PadNames = MiSTer` records that controller buttons use MiSTer's names; leave it as it is. A `SAMenu.ini` from before it, which used SDL's names (`a` bottom), has its controller bindings renamed once, so each stays on the same button.
+`[InputDetector]` switches each kind of input on or off: `Mouse`, `Keyboard` and `Joystick`, plus the analog sticks: `Sticks` (true/false) and `StickHoldMs` (how long a stick must stay pushed to count, 75 by default).
 
 The other sections take `input = action`, where the actions are `next`, `back`, `play`, `stop`, `blacklist`, `stay`, `menu`, `search`, `favourite`, `mute` and `screenshot`:
 
@@ -641,7 +639,7 @@ start   = play
 back    = stop
 ```
 
-Use `SAMenu.sh -inputs` to find the names. The face buttons are MiSTer's: `a` right, `b` bottom, `x` top, `y` left. Controllers the SDL controller database doesn't know use raw names like `btn0` and `axis0+`.
+Use `SAMenu.sh -inputs` to find the names. Controllers the SDL controller database doesn't know use raw names like `btn0` and `axis0+`.
 
 </details>
 

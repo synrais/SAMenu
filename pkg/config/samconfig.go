@@ -166,10 +166,6 @@ type InputDetectorConfig struct {
 	// adapter port, doesn't). Buttons and the d-pad are always instant.
 	Sticks      bool `ini:"sticks"`
 	StickHoldMs int  `ini:"stickholdms"`
-	// PadNames is how controller face buttons are named: "MiSTer" (a =
-	// right, b = bottom). Older files, without it, used SDL's names (a =
-	// bottom, b = right) and are brought over once (see misterPadNames).
-	PadNames string `ini:"padnames"`
 }
 
 // MenuConfig holds SAMenu's list label settings. Values are stored
@@ -338,7 +334,6 @@ func Load() (*Config, error) {
 	}
 
 	loadControls(cfg, file)
-	misterPadNames(cfg)
 
 	// [Weights] name = number
 	if sec, err := file.GetSection("weights"); err == nil {

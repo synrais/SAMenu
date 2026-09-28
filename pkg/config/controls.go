@@ -63,47 +63,6 @@ func DefaultAttractControlsCopy() map[string]map[string]string {
 	return copyAttractControls(DefaultAttractControls)
 }
 
-// sdlToMister swaps SDL's face button names for MiSTer's: the same
-// button, by position (SDL's a, the bottom one, is MiSTer's b).
-var sdlToMister = map[string]string{"a": "b", "b": "a", "x": "y", "y": "x"}
-
-// misterPadNames brings an older SAMenu.ini over to MiSTer's button names,
-// once: controller bindings saved with SDL's names (a = bottom) are
-// renamed, so each stays on the same button. [InputDetector] PadNames =
-// MiSTer marks it done.
-func misterPadNames(cfg *Config) {
-	if strings.EqualFold(cfg.InputDetector.PadNames, "MiSTer") {
-		return
-	}
-	previous := copyAttractControls(cfg.AttractControls)
-	attract := false
-	binds := map[string]string{}
-	for in, act := range cfg.AttractControls["joystick"] {
-		if m, ok := sdlToMister[in]; ok {
-			in, attract = m, true
-		}
-		binds[in] = act
-	}
-	menu := false
-	for act, ins := range cfg.MenuControls {
-		for i, in := range ins {
-			if m, ok := sdlToMister[strings.TrimPrefix(in, "pad:")]; ok && strings.HasPrefix(in, "pad:") {
-				ins[i], menu = "pad:"+m, true
-			}
-		}
-		cfg.MenuControls[act] = ins
-	}
-	if attract {
-		cfg.AttractControls["joystick"] = binds
-		_ = SaveAttractControls(cfg, previous)
-	}
-	if menu {
-		_ = SaveMenuControls(cfg)
-	}
-	cfg.InputDetector.PadNames = "MiSTer"
-	_ = SaveValues(cfg.Path, "InputDetector", [][2]string{{"PadNames", "MiSTer"}})
-}
-
 // SaveMenuLayout writes [Controls.Menu] Layout.
 // SaveMenuControls writes the games menu's actions to [Controls.Menu].
 func SaveMenuControls(cfg *Config) error {

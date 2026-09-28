@@ -160,15 +160,8 @@ func hatName(code byte, positive bool) string {
 	return fmt.Sprintf("hat%d%s", n, dir)
 }
 
-// MisterNames turns SDL's face button names into MiSTer's. SDL names them
-// Xbox style, by position (a = bottom, b = right, x = left, y = top);
-// MiSTer names them SNES style (a = right, b = bottom, x = top, y = left),
-// so a button reads the same here as in MiSTer's own menu and mapping.
-var MisterNames = map[string]string{"a": "b", "b": "a", "x": "y", "y": "x"}
-
 // buildLayout names buttons and axes from an SDL mapping (which may be
-// nil), with raw names for anything the mapping doesn't cover. The face
-// buttons get MiSTer's names (see MisterNames).
+// nil), with raw names for anything the mapping doesn't cover.
 //
 // SDL numbers buttons the same way the joystick device does. It numbers
 // axes the same way too, except that it leaves the hats (d-pads) out and
@@ -212,9 +205,6 @@ func buildLayout(nButtons int, axisCodes []byte, mapping map[string]string) jsLa
 		}
 		// An output like "+leftx" maps only half of an axis.
 		out := strings.TrimLeft(name, "+-")
-		if m, ok := MisterNames[out]; ok {
-			out = m
-		}
 
 		switch {
 		case strings.HasPrefix(raw, "b"):
