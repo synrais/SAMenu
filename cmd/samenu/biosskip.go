@@ -91,23 +91,7 @@ func biosSkipScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 			}))
 		}
 		return append(lines,
-			opens("Add a system...", func() {
-				// Pick a system without a sequence yet.
-				var choices, choiceIDs []string
-				for _, id := range systemIDs(sysNames) {
-					if _, has := cfg.AutoInput.Sequences[strings.ToLower(id)]; !has && !strings.EqualFold(id, "Arcade") {
-						choices = append(choices, nameOf(id))
-						choiceIDs = append(choiceIDs, id)
-					}
-				}
-				if len(choices) == 0 {
-					message(stdscr, "Every system already has a sequence.")
-					return
-				}
-				if c, ok := optionsList(stdscr, "Add BIOS skip for", choices, 0); ok {
-					biosSequenceEditor(stdscr, cfg, choiceIDs[c], nameOf(choiceIDs[c]))
-				}
-			}),
+			opens("Add a system...", func() { addBiosSystem(stdscr, cfg, sysNames) }),
 			restoreDefaults(func() {
 				// Both, and only the FDS's sequence.
 				for _, id := range ids {
@@ -118,6 +102,47 @@ func biosSkipScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 			}),
 		)
 	}}).run(stdscr)
+}
+
+// addBiosSystem picks a system without a sequence yet and opens its
+// editor. The systems are always under Consoles, Handhelds, Computers and
+// Other (headings the highlight skips), A-Z in each, whatever the menu's
+// own sorting.
+func addBiosSystem(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
+	byCategory := map[string][]string{}
+	for _, id := range systemIDs(sysNames) {
+		if _, has := cfg.AutoInput.Sequences[strings.ToLower(id)]; has || strings.EqualFold(id, "Arcade") {
+			continue
+		}
+		cat := games.SystemGroup(games.DisplayName(id), "Category")
+		if cat != games.CategoryConsole && cat != games.CategoryHandheld && cat != games.CategoryComputer {
+			cat = games.CategoryOther
+		}
+		byCategory[cat] = append(byCategory[cat], id)
+	}
+	if len(byCategory) == 0 {
+		message(stdscr, "Every system already has a sequence.")
+		return
+	}
+	var lines []menuLine
+	for _, cat := range []string{games.CategoryConsole, games.CategoryHandheld, games.CategoryComputer, games.CategoryOther} {
+		list := byCategory[cat]
+		if len(list) == 0 {
+			continue
+		}
+		sort.Slice(list, func(i, j int) bool {
+			return strings.ToLower(games.DisplayName(list[i])) < strings.ToLower(games.DisplayName(list[j]))
+		})
+		lines = append(lines, heading(categoryTitles[cat]))
+		for _, id := range list {
+			id := id
+			lines = append(lines, opens("  "+games.DisplayName(id), nil).leaves(func() bool {
+				biosSequenceEditor(stdscr, cfg, id, games.DisplayName(id))
+				return true
+			}))
+		}
+	}
+	(&menuScreen{title: "Add BIOS skip for", lines: func() []menuLine { return lines }}).run(stdscr)
 }
 
 func saveBiosWhen(cfg *config.Config) error {
