@@ -30,7 +30,28 @@ const (
 
 	defaultStep = 8
 	targetFPS   = 30
+
+	// sampleBudget is the most pixels a frame reads: every 8th pixel each
+	// way up to about 640x480 (PSX), further apart on bigger screens. The
+	// video memory is read uncached, so this keeps a high-res core (ao486,
+	// Minimig) costing no more than PSX. Sprites there are more pixels
+	// across too, and the motion grid is the whole screen, so detection
+	// works the same.
+	sampleBudget = 5000
+	// minRest is the least the detector sleeps after each frame, however
+	// long the frame took: it can slow down, but never keep a CPU busy.
+	minRest = 5 * time.Millisecond
 )
+
+// sampleStep is the distance between the pixels read, for a screen size:
+// defaultStep, or more to keep within sampleBudget.
+func sampleStep(width, height int) int {
+	step := defaultStep
+	for (width/step+1)*(height/step+1) > sampleBudget {
+		step++
+	}
+	return step
+}
 
 // nearestColorName names a colour for the status display. Black, white
 // and grey are judged per channel, not by overall brightness, because
@@ -349,7 +370,8 @@ func (d *Detector) requestSkip(gen int) {
 }
 
 // sampleOffsets shifts the sampling grid a little each frame, so over four
-// frames the detector checks four spots in every 8x8 block instead of one.
+// frames the detector checks four spots in every 8x8 block instead of one
+// (spread in proportion when the pixels read are further apart).
 // Each frame is compared with the last frame that used the same offset, so
 // the same pixels are always compared. Two spots sit on "even" pixels and
 // two on "odd" ones, so fine patterns like checkerboards and dithering
@@ -421,15 +443,16 @@ func (d *Detector) run() {
 		currRGB = currRGB[:0]
 		currCell = currCell[:0]
 		slot := frameNo % len(sampleOffsets)
-		ox, oy := sampleOffsets[slot][0], sampleOffsets[slot][1]
+		step := sampleStep(res.Width, res.Height)
+		ox, oy := scaleOffset(sampleOffsets[slot][0], step), scaleOffset(sampleOffsets[slot][1], step)
 		frameNo++
 
 		if !valid {
 			currRGB = append(currRGB, 0)
 		} else {
-			for y := oy; y < res.Height; y += defaultStep {
+			for y := oy; y < res.Height; y += step {
 				row := res.Map[res.Header+y*res.Line:]
-				for x := ox; x < res.Width; x += defaultStep {
+				for x := ox; x < res.Width; x += step {
 					off := x * 3
 					if off+2 < res.Line {
 						r := row[off]
@@ -604,11 +627,22 @@ func (d *Detector) run() {
 		d.mu.Unlock()
 		d.writeStatus(currCfg, false)
 
-		elapsed := time.Since(t1)
-		if frameDur := time.Second / targetFPS; elapsed < frameDur {
-			time.Sleep(frameDur - elapsed)
+		rest := time.Second/targetFPS - time.Since(t1)
+		if rest < minRest {
+			rest = minRest
 		}
+		time.Sleep(rest)
 	}
+}
+
+// scaleOffset spreads a sampleOffsets value over a wider step, keeping it
+// on an even or odd pixel as it was (for checkerboards and dithering).
+func scaleOffset(off, step int) int {
+	s := off * step / defaultStep
+	if s%2 != off%2 {
+		s++
+	}
+	return s
 }
 
 // detectorConfigFor applies [StaticDetector.X] overrides for a system on
