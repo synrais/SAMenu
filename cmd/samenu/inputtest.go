@@ -11,7 +11,6 @@ import (
 	"github.com/synrais/SAMenu/pkg/config"
 	"github.com/synrais/SAMenu/pkg/curses"
 	"github.com/synrais/SAMenu/pkg/input"
-	"github.com/synrais/SAMenu/pkg/mister"
 )
 
 // -------------------------
@@ -23,9 +22,9 @@ import (
 // watched, bars showing the last-used controller's sticks (with the line a
 // stick must pass to count), and every input as it happens, with the
 // attract action it would trigger, or dimmed with why it didn't count (the
-// stick hold, Sticks = false). Holding a controller's Back (Select) or a
-// keyboard's Esc for two seconds leaves; tapping it just shows it, so any
-// button can be tried.
+// stick hold, Sticks = false). Holding the menu's Back (the controller
+// button that backs out of the menu, or Esc) for two seconds leaves;
+// tapping it just shows it, so any button can be tried.
 
 const (
 	exitHold    = 2 * time.Second // hold Back or Esc this long to leave
@@ -64,15 +63,31 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 	var lines []testLine
 	lastPad := "" // the controller whose sticks are shown
 
-	// Leaving: holding a controller's Back (Select) or a keyboard's Esc for
-	// exitHold, as the detectors see them go down and up. Every other button
-	// can be tried freely. Over SSH the keyboard isn't one the detectors
-	// see, so there an Esc that keeps repeating for as long counts too (on
-	// the TV it doesn't: MiSTer turns a controller's B into Esc).
-	holdKey := "" // the button being held to leave
+	// Leaving: holding the menu's Back for exitHold. On a controller that's
+	// the button MiSTer turns into the Back key (Esc, or Enter with the
+	// Japanese layout): the detectors say when a button goes down and up,
+	// and the Back key arriving with a press says it's that button. A
+	// controller's Back/Select, or the keyboard's Back key, counts too.
+	// Every other button can be tried freely. A Back key that keeps
+	// repeating for as long also counts (over SSH, the detectors don't see
+	// the keyboard at all).
+	japanese := cfg.MenuLayout == "Japanese"
+	isBackKey := func(k gc.Key) bool {
+		if japanese {
+			return k == 10 || k == 13 || k == gc.KEY_ENTER
+		}
+		return k == 27
+	}
+	backKeyName := map[bool]string{false: "esc", true: "enter"}[japanese]
+	type press struct {
+		key string
+		at  time.Time
+	}
+	var recent []press     // controller presses of the last moment
+	var lastBack time.Time // when the Back key last came in
+	holdKey := ""          // the button being held to leave
 	var holdStart time.Time
-	var repeatStart, repeatLast time.Time // Esc repeating in an SSH terminal
-	sshEsc := !mister.OnConsole()
+	var repeatStart, repeatLast time.Time // the Back key repeating by itself
 	// After the hold: wait for the button to be let go (or 5 seconds), so
 	// its key repeats don't carry on into the next screen.
 	releasing := false
@@ -81,8 +96,8 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 	for {
 		time.Sleep(50 * time.Millisecond)
 		now := time.Now()
-		// Menu keys (at most a screenful's worth each frame): only read, so
-		// they don't pile up, apart from an SSH terminal's Esc.
+		// Menu keys (at most a screenful's worth each frame): only the Back
+		// key matters, the rest are just read so they don't pile up.
 		for n := 0; n < 64; n++ {
 			k := stdscr.GetChar()
 			if k == 0 || k == gc.KEY_RESIZE {
@@ -97,13 +112,22 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 					}
 					continue
 				}
-				if sshEsc {
-					if now.Sub(repeatLast) > 300*time.Millisecond {
-						repeatStart = now
-					}
-					repeatLast = now
+			}
+			if !isBackKey(k) {
+				continue
+			}
+			// The controller press it came from, if seen just now.
+			for i := len(recent) - 1; i >= 0; i-- {
+				if now.Sub(recent[i].at) < 300*time.Millisecond && holdKey == "" && !releasing {
+					holdKey, holdStart = recent[i].key, recent[i].at
+					break
 				}
 			}
+			lastBack = now
+			if now.Sub(repeatLast) > 300*time.Millisecond {
+				repeatStart = now
+			}
+			repeatLast = now
 		}
 		// Detector events.
 	drain:
@@ -123,10 +147,22 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 				if ev.Kind == "joystick" && ev.Path != "" {
 					lastPad = ev.Path
 				}
-				// A controller's Back or a keyboard's Esc starts the hold.
-				exitButton := (ev.Kind == "joystick" && ev.Name == "back") || (ev.Kind == "keyboard" && ev.Name == "esc")
-				if exitButton && ev.Ignored == "" && holdKey == "" && !releasing {
-					holdKey, holdStart = key, now
+				// Only buttons and keys can be held to leave: never a stick
+				// or d-pad (they don't report being let go).
+				if ev.Ignored == "" && !ev.Axis && holdKey == "" && !releasing {
+					switch {
+					case ev.Kind == "joystick" && ev.Name == "back",
+						ev.Kind == "keyboard" && ev.Name == backKeyName:
+						holdKey, holdStart = key, now
+					case ev.Kind == "joystick":
+						recent = append(recent, press{key, now})
+						if len(recent) > 8 {
+							recent = recent[1:]
+						}
+						if now.Sub(lastBack) < 300*time.Millisecond {
+							holdKey, holdStart = key, now // the Back key came first
+						}
+					}
 				}
 				lines = append([]testLine{describeInput(cfg, ev, now)}, lines...)
 				if len(lines) > 200 {
@@ -299,6 +335,9 @@ func drawInputTest(stdscr *gc.Window, lines []testLine, pad string, held time.Du
 	}
 
 	hint := "Hold Back/ESC for 2 seconds to exit"
+	if curses.SwapConfirmBack { // Japanese layout: the keyboard's Back is Enter
+		hint = "Hold Back/ENTER for 2 seconds to exit"
+	}
 	if releasing {
 		secs := int((left + time.Second - 1) / time.Second)
 		hint = fmt.Sprintf("Release to exit, else exiting in %d seconds...", secs)
