@@ -443,7 +443,7 @@ If the sound drifts out of step after skipping, try the **sync options** in Opti
 | **Music** | Also start the music player |
 | **Attract mode starts** | **Instantly**, **After a delay** (`AttractDelay` seconds, where a press can restart the countdown, cancel it, or be ignored for kiosks), or **When idle** |
 
-**When idle** runs a small watcher that starts attract mode once nothing's been pressed for **IdleTime** minutes, counting in the MiSTer menu, in games, or both. With games included, attract mode also comes back after you pick one of its games and put the controller down.
+**When idle** runs a small watcher that starts attract mode once nothing's been pressed for **IdleTime** minutes, counting in the MiSTer menu, in games, or both. With games included, attract mode also comes back after you pick one of its games and put the controller down. While it isn't counting (attract mode or a video is playing, or you're somewhere it doesn't count), it stops reading the controllers altogether.
 
 > [!TIP]
 > SAMenu never starts attract mode while another script is running, such as `update_all`, so a core never gets loaded over an update.
@@ -842,7 +842,7 @@ To use a different settings file, set the environment variable `SAMENU_CONFIG`.
 SD cards wear out with repeated writing, so SAMenu keeps its busy work in **RAM** (`/tmp`, which vanishes at power-off):
 
 - **Launching:** each game gets a small MGL file generated in RAM (`/tmp/.LASTLAUNCH.mgl`), not saved to the card.
-- **Attract mode:** its log, status, history, command pipes and locks are all in RAM. The static detector's live status is rewritten up to 10 times a second, in RAM.
+- **Attract mode:** its log, status, history, command pipes and locks are all in RAM. The static detector's live status is written (up to 10 times a second, in RAM) only while `-watch` is showing it.
 - **Music and video:** status and command files in RAM, and MPlayer is unpacked into RAM once per boot.
 - **Searching and browsing:** the games database is read once and kept in memory, so browsing and searching never touch the card.
 
@@ -856,6 +856,12 @@ SD cards wear out with repeated writing, so SAMenu keeps its busy work in **RAM*
 - **`attract_muted`**, a tiny marker, only when attract mode mutes the sound (removed when it unmutes).
 
 **Capped:** attract mode, which can run for hours, limits its memory to **128 MB** (of the MiSTer's roughly 500 MB for Linux), keeps a history of the last **100** games, and starts a **fresh log** each session.
+
+**Light on the processor**, so the games run as they should:
+
+- Attract mode keeps only the games it can play in memory, letting the rest of the database go once it's started.
+- The static detector reads a fixed number of pixels per frame (up to about 5,000), whatever the core's resolution, and always rests between frames.
+- Input detectors only run while something needs them: the menu's only for controller buttons mapped to its actions (and the Input test), and the idle watcher's only while it's counting.
 
 ---
 
