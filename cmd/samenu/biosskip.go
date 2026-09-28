@@ -24,17 +24,18 @@ import (
 // mode's launches, yours, both or neither), and each system's sequence
 // ([BiosSkip.<ID>] Sequence), made by pressing the buttons and keys.
 //
-// The virtual pad's names are by position, Nintendo style: a = right,
-// b = bottom, x = top, y = left. A controller's buttons are read with
-// SDL's names (Xbox style: a = bottom), so a press is saved by position:
-// the bottom button (Cross) becomes b, the virtual pad's bottom button.
+// The virtual pad's names are by position, SNES style, as MiSTer names
+// them: a = right, b = bottom, x = top, y = left. A controller's face
+// buttons are read with the same names, so a press is saved as it is:
+// the bottom button (Cross) is b, the virtual pad's bottom button.
 
 // biosPositions names each virtual pad button's place.
 var biosPositions = map[string]string{"a": "right", "b": "bottom", "x": "top", "y": "left"}
 
-// sdlToBios turns a controller input (SDL names) into a virtual pad name.
-var sdlToBios = map[string]string{
-	"a": "b", "b": "a", "x": "y", "y": "x",
+// padToBios turns a controller input (as the Input test names it) into a
+// virtual pad name.
+var padToBios = map[string]string{
+	"a": "a", "b": "b", "x": "x", "y": "y",
 	"leftshoulder": "l", "rightshoulder": "r",
 	"back": "select", "start": "start", "guide": "home",
 	"dpup": "up", "dpdown": "down", "dpleft": "left", "dpright": "right",
@@ -195,7 +196,7 @@ func captureBiosStep(stdscr *gc.Window) (string, bool) {
 					return t, true
 				}
 			case "joystick":
-				if t, ok := sdlToBios[strings.ToLower(ev.Name)]; ok {
+				if t, ok := padToBios[strings.ToLower(ev.Name)]; ok {
 					return t, true
 				}
 				// Not a name the virtual pad knows (e.g. btn7): pick one.

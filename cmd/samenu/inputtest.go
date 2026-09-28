@@ -21,9 +21,9 @@ import (
 // watched, bars showing the last-used controller's sticks (with the line a
 // stick must pass to count), and every input as it happens, with the
 // attract action it would trigger, or dimmed with why it didn't count (the
-// stick hold, Sticks = false). Holding Enter or Esc (Cross/B or Circle/A) for
-// two seconds leaves; tapping them just shows them, so any button can be
-// tried.
+// stick hold, Sticks = false). Holding Enter or Esc (A or B, which MiSTer
+// turns into them) for two seconds leaves; tapping them just shows them, so
+// any button can be tried.
 
 const (
 	exitHold    = 2 * time.Second // hold Enter or Esc this long to leave
@@ -318,7 +318,7 @@ func drawInputTest(stdscr *gc.Window, lines []testLine, pad string, held time.Du
 		put(layoutInput(l, cols-1, time.Since(opened)), attr)
 	}
 
-	hint := "Hold Cross/B/Enter or Circle/A/Esc for 2 seconds to exit"
+	hint := "Hold A/Enter or B/Esc for 2 seconds to exit"
 	if releasing {
 		secs := int((left + time.Second - 1) / time.Second)
 		hint = fmt.Sprintf("Release to exit, else exiting in %d seconds...", secs)

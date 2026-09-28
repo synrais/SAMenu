@@ -128,20 +128,23 @@ func TestJoystickLayout(t *testing.T) {
 	// 8BitDo-style pad: X, Y, Z, RX, RY, RZ, HAT0X, HAT0Y
 	axes := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x10, 0x11}
 	mapping := map[string]string{
-		"a": "b0", "b": "b1", "start": "b7",
+		"a": "b0", "b": "b1", "x": "b2", "y": "b3", "start": "b7",
 		"leftx": "a0", "lefty": "a1", "lefttrigger": "a2", "righttrigger": "+a5",
 		"rightx": "a3~",
 		"dpup":   "h0.1", "dpright": "h0.2", "dpdown": "h0.4", "dpleft": "h0.8",
 	}
 	l := buildLayout(10, axes, mapping)
 	want := map[string]string{
-		"btn0": l.btnNames[0], "btn7": l.btnNames[7], "btn9": l.btnNames[9],
+		"btn0": l.btnNames[0], "btn1": l.btnNames[1], "btn2": l.btnNames[2], "btn3": l.btnNames[3],
+		"btn7": l.btnNames[7], "btn9": l.btnNames[9],
 		"ax0-": l.axNames[0][0], "ax0+": l.axNames[0][1],
 		"ax2+": l.axNames[2][1], "ax3-": l.axNames[3][0], "ax5+": l.axNames[5][1],
 		"ax5-": l.axNames[5][0], "hatX-": l.axNames[6][0], "hatY+": l.axNames[7][1],
 	}
 	exp := map[string]string{
-		"btn0": "a", "btn7": "start", "btn9": "btn9",
+		// Face buttons by MiSTer's names: SDL's a (bottom) is MiSTer's b.
+		"btn0": "b", "btn1": "a", "btn2": "y", "btn3": "x",
+		"btn7": "start", "btn9": "btn9",
 		"ax0-": "leftx-", "ax0+": "leftx+", "ax2+": "lefttrigger+",
 		"ax3-": "rightx+", // inverted
 		"ax5+": "righttrigger", "ax5-": "axis5-", "hatX-": "dpleft", "hatY+": "dpdown",
@@ -200,7 +203,7 @@ func TestJoystickPoll(t *testing.T) {
 	}
 	rest := int16(-32767)
 	step([]int16{0, 1, 0}, []int16{0, 0, rest, 0, 0})          // first read: btn1 already held, trigger at rest
-	step([]int16{1, 1, 0}, []int16{0, 0, rest, 0, 0})          // a pressed (btn1 still held: no repeat)
+	step([]int16{1, 1, 0}, []int16{0, 0, rest, 0, 0})          // btn0 pressed (btn1 still held: no repeat)
 	step([]int16{1, 1, 1}, []int16{-30000, 0, rest, 0, 0})     // btn2 + stick left
 	step([]int16{1, 1, 1}, []int16{-32000, 0, rest, 0, 0})     // stick still left: nothing
 	step([]int16{0, 0, 0}, []int16{0, 0, 32767, -32767, 0})    // release all, trigger pulled, d-pad left
@@ -210,7 +213,7 @@ func TestJoystickPoll(t *testing.T) {
 	for ev := range out {
 		got = append(got, ev.Name)
 	}
-	want := []string{"a", "btn2", "leftx-", "lefttrigger+", "dpleft", "dpdown"}
+	want := []string{"b", "btn2", "leftx-", "lefttrigger+", "dpleft", "dpdown"} // SDL's a is MiSTer's b
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v\nwant %v", got, want)
 	}
