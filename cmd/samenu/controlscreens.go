@@ -143,7 +143,8 @@ func toggleInput(list []string, in string) []string {
 	return out
 }
 
-// inputsText shows a menu action's inputs: "key tab · pad start".
+// inputsText shows a menu action's inputs: "key tab | pad start" (plain
+// ASCII: the screens can't show other characters).
 func inputsText(ins []string) string {
 	var keys, pads []string
 	for _, in := range ins {
@@ -163,7 +164,7 @@ func inputsText(ins []string) string {
 	if len(parts) == 0 {
 		return "(none)"
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, " | ")
 }
 
 // attractModeControls is Controls -> Attract Mode: which inputs it
@@ -295,7 +296,7 @@ func attractBindingText(cfg *config.Config, act string) string {
 	if len(parts) == 0 {
 		return "(none)"
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, " | ")
 }
 
 func copyBinds(m map[string]map[string]string) map[string]map[string]string {

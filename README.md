@@ -313,7 +313,7 @@ Hold **Cross / B / Enter** or **Circle / A / Esc** for 2 seconds to leave, then 
 
 Over SSH, **`SAMenu.sh -inputs`** prints the same names, for example `joystick (8BitDo Pro 2): dpleft`.
 
-Names are SDL's, as used in `SAMenu.ini`, and the face buttons say what they're called elsewhere, since MiSTer names them differently: `a (MiSTer B · Xbox A · PS ×)`, `b (MiSTer A · Xbox B · PS ○)`, `x (MiSTer Y · Xbox X · PS ■)`, `y (MiSTer X · Xbox Y · PS ▲)`.
+Names are SDL's, as used in `SAMenu.ini`, and the face buttons say what they're called elsewhere, since MiSTer names them differently: `a (MiSTer B, Xbox A, PS X)`, `b (MiSTer A, Xbox B, PS O)`, `x (MiSTer Y, Xbox X, PS [])`, `y (MiSTer X, Xbox Y, PS /\)`.
 
 ### Game lists
 

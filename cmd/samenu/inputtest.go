@@ -376,7 +376,8 @@ func scrollFit(text string, width int, t time.Duration) string {
 	if width <= 0 {
 		return ""
 	}
-	// Counted in characters, so a "·" (two bytes) takes one column.
+	// Counted in characters, so a letter of two or more bytes (é) takes one
+	// column.
 	r := []rune(text)
 	if len(r) <= width {
 		return text + strings.Repeat(" ", width-len(r))

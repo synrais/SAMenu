@@ -604,14 +604,14 @@ func watchJoysticks(out chan<- Event) {
 
 // faceButtonHints say what each face button is called elsewhere. SDL's
 // names (used in SAMenu.ini) are Xbox style, by position; MiSTer's are
-// SNES style (its A is on the right, where SDL has b). The PlayStation
-// symbols are ones MiSTer's console font draws (its filled circle isn't,
-// so the circle is hollow), and keep the lines short enough not to scroll.
+// SNES style (its A is on the right, where SDL has b). Plain ASCII, as
+// the menu's screens can't show other characters (the PlayStation symbols
+// drawn with letters: X, O, [], /\), and short, so the lines don't scroll.
 var faceButtonHints = map[string]string{
-	"a": "MiSTer B · Xbox A · PS ×",
-	"b": "MiSTer A · Xbox B · PS ○",
-	"x": "MiSTer Y · Xbox X · PS ■",
-	"y": "MiSTer X · Xbox Y · PS ▲",
+	"a": "MiSTer B, Xbox A, PS X",
+	"b": "MiSTer A, Xbox B, PS O",
+	"x": "MiSTer Y, Xbox X, PS []",
+	"y": "MiSTer X, Xbox Y, PS /\\",
 }
 
 // axisHint describes an axis name in plain words: "lefty-" is "left stick
