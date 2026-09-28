@@ -218,32 +218,58 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			max = viewHeight
 		}
 
+		// A scroll bar only when the list is longer than the page; it has the
+		// last column, so the text stops before it.
+		scrollBar := len(items) > viewHeight
+		textWidth := viewWidth
+		if scrollBar {
+			textWidth--
+		}
+
 		for i := 0; i < max; i++ {
 			item := items[viewStart+i]
 			display := item
+			selected := viewStart+i == selectedItem
 
 			// Long lines: the highlighted one scrolls, the others end in
 			// "...". Measured in bytes, as the screen library counts them,
 			// but never cut in the middle of an accented or other
 			// non-English letter (see cutBytes).
-			if len(item) > viewWidth {
-				if viewStart+i == selectedItem {
+			scrolling := len(item) > textWidth
+			if scrolling {
+				if selected {
 					// build marquee string with gap
 					marquee := item + "   "
 					marquee = marquee + marquee
 					offset := scrollOffset % (len(item) + 3)
-					display = cutBytes(marquee, offset, offset+viewWidth)
+					display = cutBytes(marquee, offset, offset+textWidth)
 				} else {
-					display = cutBytes(item, 0, viewWidth-3) + "..."
+					display = cutBytes(item, 0, textWidth-3) + "..."
 				}
 			}
 
-			if viewStart+i == selectedItem {
-				win.ColorOn(1)
-			}
 			win.MovePrint(i+1, 2, strings.Repeat(" ", viewWidth))
-			win.MovePrint(i+1, 2, display)
-			win.ColorOff(1)
+			switch {
+			case !selected:
+				win.MovePrint(i+1, 2, display)
+			case scrolling:
+				// A scrolling line is highlighted across the whole width,
+				// so its gaps don't show as holes as it moves.
+				win.ColorOn(1)
+				win.MovePrint(i+1, 2, display+strings.Repeat(" ", textWidth-len(display)))
+				win.ColorOff(1)
+			default:
+				// Otherwise just the text is highlighted, not its indent or
+				// the padding after it (a blank line shows one block).
+				lead := len(display) - len(strings.TrimLeft(display, " "))
+				text := strings.TrimRight(display[lead:], " ")
+				if text == "" {
+					text = " "
+				}
+				win.ColorOn(1)
+				win.MovePrint(i+1, 2+lead, text)
+				win.ColorOff(1)
+			}
 		}
 
 		// --- Buttons ---
@@ -276,7 +302,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 
 		// --- Scroll bar ---
 		scrollHeight := viewHeight
-		if scrollHeight > 0 {
+		if scrollHeight > 0 && scrollBar {
 			var gripHeight int
 			if len(items) <= scrollHeight {
 				gripHeight = scrollHeight
