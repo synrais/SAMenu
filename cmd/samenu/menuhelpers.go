@@ -82,7 +82,11 @@ type menuScreen struct {
 
 // run shows the screen until Back, or until a line leaves it. The lines
 // are made again after every press, so they show the current values.
+// Backing out of a screen opened here lands on Back, to carry on backing
+// out; moving to another line goes back to the line's button.
 func (m *menuScreen) run(stdscr *gc.Window) {
+	buttons := []string{"Select", "Back"}
+	cameBack := false
 	for {
 		lines := m.lines()
 		if len(lines) == 0 {
@@ -107,9 +111,10 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
 			Shortcuts:     menuShortcuts(),
 			Title:         title,
-			Buttons:       []string{"Select", "Back"},
-			DefaultButton: 0,
+			Buttons:       buttons,
+			DefaultButton: landingButton(buttons, 0, cameBack),
 			ActionButton:  0,
+			SnapToAction:  true,
 			Width:         width,
 			Height:        len(items) + 4,
 			InitialIndex:  m.selected,
@@ -128,6 +133,7 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 		if press := lines[sel].press; press != nil && press() {
 			return
 		}
+		cameBack = curses.ClosedByBack()
 	}
 }
 
@@ -139,6 +145,8 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 // action button (Open, Pick...), or after backing out of something, its Back
 // button, so Back can be pressed again to carry on climbing out. A list
 // without one, like the main menu (Exit), always lands on its action.
+// Backing out stays on Back, going forward stays on the action, throughout
+// the menus.
 func landingButton(buttons []string, action int, cameBack bool) int {
 	if cameBack {
 		for i, b := range buttons {

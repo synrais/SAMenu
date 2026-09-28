@@ -45,7 +45,19 @@ type ListPickerOpts struct {
 // out a fresh scroll position, so the page jumped around the highlight.
 var scrollMemory = map[string]int{}
 
-func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, int, error) {
+// closedByBack is whether the last list closed was backed out of.
+var closedByBack bool
+
+// ClosedByBack reports whether the last list to close was closed with its
+// Back button (or Esc): the user backed out, rather than choosing something.
+// A screen that opened another uses it to land on its own Back button, so
+// backing out carries on backing out.
+func ClosedByBack() bool { return closedByBack }
+
+func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (button int, item int, err error) {
+	defer func() {
+		closedByBack = button >= 0 && button < len(opts.Buttons) && strings.EqualFold(opts.Buttons[button], "Back")
+	}()
 	// Apply InitialIndex safely
 	selectedItem := opts.InitialIndex
 	if selectedItem < 0 || selectedItem >= len(items) {

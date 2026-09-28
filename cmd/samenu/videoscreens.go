@@ -98,6 +98,7 @@ func videoBrowser(stdscr *gc.Window, dir string) {
 		return
 	}
 	selected := 0
+	cameBack := false // the last folder opened here was backed out of
 	for {
 		var folders []string
 		entries, _ := os.ReadDir(dir)
@@ -134,11 +135,12 @@ func videoBrowser(stdscr *gc.Window, dir string) {
 			first = 1
 		}
 		clearScreen(stdscr)
+		buttons := []string{"PgUp", "PgDn", "", "Back"}
 		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
 			Title:         title,
-			Buttons:       []string{"PgUp", "PgDn", "", "Back"},
+			Buttons:       buttons,
 			ActionButton:  2,
-			DefaultButton: 2,
+			DefaultButton: landingButton(buttons, 2, cameBack),
 			SnapToAction:  true,
 			ShowTotal:     true,
 			Width:         systemListWidth,
@@ -151,6 +153,7 @@ func videoBrowser(stdscr *gc.Window, dir string) {
 				return "Play"
 			},
 		}, items)
+		cameBack = false
 		if err != nil || button != 2 || sel < 0 {
 			return
 		}
@@ -160,6 +163,7 @@ func videoBrowser(stdscr *gc.Window, dir string) {
 			playVideos(stdscr, files, false)
 		case sel < first+len(folders):
 			videoBrowser(stdscr, filepath.Join(dir, folders[sel-first]))
+			cameBack = curses.ClosedByBack()
 		default:
 			playVideos(stdscr, []string{files[sel-first-len(folders)]}, false)
 		}
