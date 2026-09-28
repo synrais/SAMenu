@@ -44,60 +44,50 @@ func videoFolderName(p string) string {
 // videoScreen is Options -> Video Player.
 func videoScreen(stdscr *gc.Window, cfg *config.Config) {
 	v := &cfg.Video
-	selected := 0
-	for {
-		items := []string{
-			"Play videos...",
-			fmt.Sprintf("Play playlist (%s, %s)", videoFolderName(v.Playlist), strings.ToLower(v.Playback)),
-			fmt.Sprintf("%-22s %s", "Playback:", v.Playback),
-			fmt.Sprintf("%-22s %s", "Playlist:", videoFolderName(v.Playlist)),
-			fmt.Sprintf("%-22s %s", "In attract mode:", videoAttractText(v.AttractEvery)),
-			// Sync settings, mostly for sound drifting after seeking.
-			fmt.Sprintf("%-32s %s", "Fast A/V resync (all files):", onOffText(v.AutoSync)),
-			fmt.Sprintf("%-32s %s", "Timestamps (MP4, MKV):", onOffText(v.CorrectPts)),
-			fmt.Sprintf("%-32s %s", "Accurate seek (MP3 audio):", onOffText(v.Mp3Seek)),
-			fmt.Sprintf("%-32s %s", "Build index (AVI, no index):", onOffText(v.AviIndex)),
-		}
-		sel, ok := optionsListWith(stdscr, "Video Player", items, selected, map[int]string{1: "Play"})
-		if !ok {
-			return
-		}
-		selected = sel
-		switch sel {
-		case 0:
-			videoBrowser(stdscr, video.Folder)
-			continue
-		case 1:
-			files := video.Videos(v.Playlist)
-			if len(files) == 0 {
-				message(stdscr, "No videos found in "+filepath.Join(video.Folder, v.Playlist))
-				continue
+	// change is a setting line: pressing moves it on and saves.
+	change := func(text string, next func()) menuLine {
+		return setting(text, func() {
+			next()
+			if err := config.SaveValues(cfg.Path, "Video", [][2]string{
+				{"Playback", v.Playback}, {"Playlist", v.Playlist}, {"AttractEvery", fmt.Sprint(v.AttractEvery)},
+				{"AutoSync", strconv.FormatBool(v.AutoSync)}, {"CorrectPts", strconv.FormatBool(v.CorrectPts)},
+				{"Mp3Seek", strconv.FormatBool(v.Mp3Seek)}, {"AviIndex", strconv.FormatBool(v.AviIndex)},
+			}); err != nil {
+				message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
 			}
-			playVideos(stdscr, files, v.Playback == "Random")
-			continue
-		case 2:
-			v.Playback = nextOf([]string{"Random", "In order"}, v.Playback)
-		case 3:
-			v.Playlist = nextOf(video.Playlists(), v.Playlist)
-		case 4:
-			v.AttractEvery = nextOf(videoAttractChoices, v.AttractEvery)
-		case 5:
-			v.AutoSync = !v.AutoSync
-		case 6:
-			v.CorrectPts = !v.CorrectPts
-		case 7:
-			v.Mp3Seek = !v.Mp3Seek
-		case 8:
-			v.AviIndex = !v.AviIndex
-		}
-		if err := config.SaveValues(cfg.Path, "Video", [][2]string{
-			{"Playback", v.Playback}, {"Playlist", v.Playlist}, {"AttractEvery", fmt.Sprint(v.AttractEvery)},
-			{"AutoSync", strconv.FormatBool(v.AutoSync)}, {"CorrectPts", strconv.FormatBool(v.CorrectPts)},
-			{"Mp3Seek", strconv.FormatBool(v.Mp3Seek)}, {"AviIndex", strconv.FormatBool(v.AviIndex)},
-		}); err != nil {
-			message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
-		}
+		})
 	}
+	// sync is one of the sync settings, mostly for sound drifting after
+	// seeking.
+	sync := func(name string, on *bool) menuLine {
+		return change(fmt.Sprintf("%-32s %s", name, onOffText(*on)), func() { *on = !*on })
+	}
+	(&menuScreen{title: "Video Player", lines: func() []menuLine {
+		return []menuLine{
+			opens("Play videos...", func() { videoBrowser(stdscr, video.Folder) }),
+			action("Play", fmt.Sprintf("Play playlist (%s, %s)", videoFolderName(v.Playlist), strings.ToLower(v.Playback)), func() {
+				files := video.Videos(v.Playlist)
+				if len(files) == 0 {
+					message(stdscr, "No videos found in "+filepath.Join(video.Folder, v.Playlist))
+					return
+				}
+				playVideos(stdscr, files, v.Playback == "Random")
+			}),
+			change(fmt.Sprintf("%-22s %s", "Playback:", v.Playback), func() {
+				v.Playback = nextOf([]string{"Random", "In order"}, v.Playback)
+			}),
+			change(fmt.Sprintf("%-22s %s", "Playlist:", videoFolderName(v.Playlist)), func() {
+				v.Playlist = nextOf(video.Playlists(), v.Playlist)
+			}),
+			change(fmt.Sprintf("%-22s %s", "In attract mode:", videoAttractText(v.AttractEvery)), func() {
+				v.AttractEvery = nextOf(videoAttractChoices, v.AttractEvery)
+			}),
+			sync("Fast A/V resync (all files):", &v.AutoSync),
+			sync("Timestamps (MP4, MKV):", &v.CorrectPts),
+			sync("Accurate seek (MP3 audio):", &v.Mp3Seek),
+			sync("Build index (AVI, no index):", &v.AviIndex),
+		}
+	}}).run(stdscr)
 }
 
 // videoBrowser lists a folder: "[Play all]" (when it has videos), its

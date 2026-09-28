@@ -37,29 +37,6 @@ var attractActionNames = map[string]string{
 	"favourite": "Favourite", "mute": "Mute on/off", "screenshot": "Screenshot",
 }
 
-// bindingPicker shows a list of actions plus "Restore defaults" and returns
-// the chosen index (len(actions) for defaults), or -1 for Back. The button
-// names what each line does (see actionLabel).
-func bindingPicker(stdscr *gc.Window, title string, items []string, selected int) int {
-	clearScreen(stdscr)
-	items = append(items, "Restore defaults")
-	button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-		Shortcuts:          menuShortcuts(),
-		Title:              title,
-		Buttons:            []string{"Change", "Back"},
-		DefaultButton:      0,
-		ActionButton:       0,
-		Width:              optionsWidth,
-		Height:             len(items) + 4,
-		InitialIndex:       selected,
-		DynamicActionLabel: lineLabels(items, nil),
-	}, items)
-	if err != nil || button != 0 {
-		return -1
-	}
-	return sel
-}
-
 // message shows a short note for a moment.
 func message(stdscr *gc.Window, text string) {
 	_ = curses.InfoBox(stdscr, "", text, true, false)
@@ -68,38 +45,27 @@ func message(stdscr *gc.Window, text string) {
 
 // -------- Controls --------
 
-// controlsScreen is Options -> Controls: Menu Layout first, then the input
-// switches and attract mode's actions.
+// controlsScreen is Options -> Controls: the games menu's buttons, attract
+// mode's, BIOS skip and the input test.
 func controlsScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
-	selected := 0
-	for {
-		items := []string{"Games Menu...", "Attract Mode...", "BIOS Skip...", "Input test..."}
-		sel := bindingPicker(stdscr, "Controls", items, selected)
-		if sel < 0 {
-			break
+	(&menuScreen{title: "Controls", wide: true, lines: func() []menuLine {
+		return []menuLine{
+			opens("Games Menu...", func() { gamesMenuControls(stdscr, cfg) }),
+			opens("Attract Mode...", func() { attractModeControls(stdscr, cfg) }),
+			opens("BIOS Skip...", func() { biosSkipScreen(stdscr, cfg, sysNames) }),
+			opens("Input test...", func() { inputTestScreen(stdscr, cfg) }),
+			restoreDefaults(func() {
+				// Everything on these screens.
+				previous := copyBinds(cfg.AttractControls)
+				cfg.AttractControls = config.DefaultAttractControlsCopy()
+				cfg.MenuControls = config.DefaultMenuControlsCopy()
+				menuControls = cfg.MenuControls
+				cfg.MenuLayout = "Western"
+				curses.SwapConfirmBack = false
+				saveErr(stdscr, config.SaveMenuLayout(cfg), config.SaveMenuControls(cfg), config.SaveAttractControls(cfg, previous))
+			}),
 		}
-		selected = sel
-		switch sel {
-		case 0:
-			gamesMenuControls(stdscr, cfg)
-		case 1:
-			attractModeControls(stdscr, cfg)
-		case 2:
-			biosSkipScreen(stdscr, cfg, sysNames)
-		case 3:
-			inputTestScreen(stdscr, cfg)
-		default:
-			// Restore defaults: everything on these screens.
-			previous := copyBinds(cfg.AttractControls)
-			cfg.AttractControls = config.DefaultAttractControlsCopy()
-			cfg.MenuControls = config.DefaultMenuControlsCopy()
-			menuControls = cfg.MenuControls
-			cfg.MenuLayout = "Western"
-			curses.SwapConfirmBack = false
-			saveErr(stdscr, config.SaveMenuLayout(cfg), config.SaveMenuControls(cfg), config.SaveAttractControls(cfg, previous))
-		}
-	}
-	clearScreen(stdscr)
+	}}).run(stdscr)
 }
 
 // saveErr shows the first error from saving, if any.
@@ -123,47 +89,41 @@ var menuActionNames = map[string]string{
 // gamesMenuControls is Controls -> Games Menu: the layout, and the menu's
 // actions (keys, or controller buttons MiSTer doesn't pass on as keys).
 func gamesMenuControls(stdscr *gc.Window, cfg *config.Config) {
-	selected := 0
-	for {
-		var items []string
+	(&menuScreen{title: "Games Menu", wide: true, lines: func() []menuLine {
+		var lines []menuLine
 		for _, act := range config.MenuActions {
-			items = append(items, fmt.Sprintf("%-24s %s", menuActionNames[act]+":", inputsText(cfg.MenuControls[act])))
+			act := act
+			lines = append(lines, setting(fmt.Sprintf("%-24s %s", menuActionNames[act]+":", inputsText(cfg.MenuControls[act])), func() {
+				in, ok := captureMenuInput(stdscr, fmt.Sprintf("Press a key or button for\n%s (a bound one removes it, Back or wait %ds to cancel)",
+					menuActionNames[act], int(bindTimeout.Seconds())))
+				if !ok {
+					return
+				}
+				cfg.MenuControls[act] = toggleInput(cfg.MenuControls[act], in)
+				menuControls = cfg.MenuControls
+				saveErr(stdscr, config.SaveMenuControls(cfg))
+				if padBindingsInUse() {
+					startInputs() // controller buttons for the menu
+				}
+			}))
 		}
 		// Layout below the actions, so a quick double press on entering
 		// can't swap confirm and back.
-		items = append(items, fmt.Sprintf("%-24s %s", "Menu Layout:", layoutText[cfg.MenuLayout]))
-		sel := bindingPicker(stdscr, "Games Menu", items, selected)
-		if sel < 0 {
-			break
-		}
-		selected = sel
-		switch {
-		case sel == len(items):
-			cfg.MenuControls = config.DefaultMenuControlsCopy()
-			menuControls = cfg.MenuControls
-			cfg.MenuLayout = "Western"
-			curses.SwapConfirmBack = false
-			saveErr(stdscr, config.SaveMenuLayout(cfg), config.SaveMenuControls(cfg))
-		case sel == len(items)-1:
-			cfg.MenuLayout = nextOf([]string{"Japanese", "Western"}, cfg.MenuLayout)
-			curses.SwapConfirmBack = cfg.MenuLayout == "Japanese"
-			saveErr(stdscr, config.SaveMenuLayout(cfg))
-		default:
-			act := config.MenuActions[sel]
-			in, ok := captureMenuInput(stdscr, fmt.Sprintf("Press a key or button for\n%s (a bound one removes it, Back or wait %ds to cancel)",
-				menuActionNames[act], int(bindTimeout.Seconds())))
-			if !ok {
-				continue
-			}
-			cfg.MenuControls[act] = toggleInput(cfg.MenuControls[act], in)
-			menuControls = cfg.MenuControls
-			saveErr(stdscr, config.SaveMenuControls(cfg))
-			if padBindingsInUse() {
-				startInputs() // controller buttons for the menu
-			}
-		}
-	}
-	clearScreen(stdscr)
+		return append(lines,
+			setting(fmt.Sprintf("%-24s %s", "Menu Layout:", layoutText[cfg.MenuLayout]), func() {
+				cfg.MenuLayout = nextOf([]string{"Japanese", "Western"}, cfg.MenuLayout)
+				curses.SwapConfirmBack = cfg.MenuLayout == "Japanese"
+				saveErr(stdscr, config.SaveMenuLayout(cfg))
+			}),
+			restoreDefaults(func() {
+				cfg.MenuControls = config.DefaultMenuControlsCopy()
+				menuControls = cfg.MenuControls
+				cfg.MenuLayout = "Western"
+				curses.SwapConfirmBack = false
+				saveErr(stdscr, config.SaveMenuLayout(cfg), config.SaveMenuControls(cfg))
+			}),
+		)
+	}}).run(stdscr)
 }
 
 // toggleInput adds an input to a list, or takes it off if it's there.
@@ -207,111 +167,79 @@ func inputsText(ins []string) string {
 }
 
 // attractModeControls is Controls -> Attract Mode: which inputs it
-// watches, BIOS skip, the mapping, and what unbound buttons do.
+// watches, the mapping, and what unbound buttons do.
 func attractModeControls(stdscr *gc.Window, cfg *config.Config) {
-	switches := []struct {
-		name string
-		on   *bool
-	}{
-		{"Mouse", &cfg.InputDetector.Mouse},
-		{"Keyboard", &cfg.InputDetector.Keyboard},
-		{"Controller", &cfg.InputDetector.Joystick},
+	d := &cfg.InputDetector
+	saveDetector := func() { saveErr(stdscr, config.SaveInputDetector(cfg)) }
+	toggle := func(name string, on *bool) menuLine {
+		return setting(fmt.Sprintf("%-20s %s", name+":", onOffText(*on)), func() {
+			*on = !*on
+			saveDetector()
+		})
 	}
-	type row struct {
-		text string
-		kind string
-		i    int
-	}
-	selected := 0
-	for {
-		var rows []row
-		for i, sw := range switches {
-			rows = append(rows, row{fmt.Sprintf("%-20s %s", sw.name+":", onOffText(*sw.on)), "switch", i})
+	(&menuScreen{title: "Attract Mode", wide: true, lines: func() []menuLine {
+		lines := []menuLine{
+			toggle("Mouse", &d.Mouse),
+			toggle("Keyboard", &d.Keyboard),
+			toggle("Controller", &d.Joystick),
+			toggle("Sticks", &d.Sticks),
 		}
-		rows = append(rows, row{fmt.Sprintf("%-20s %s", "Sticks:", onOffText(cfg.InputDetector.Sticks)), "sticks", 0})
-		if cfg.InputDetector.Sticks {
-			rows = append(rows, row{fmt.Sprintf("%-20s %d ms", "Stick hold:", cfg.InputDetector.StickHoldMs), "hold", 0})
+		if d.Sticks {
+			lines = append(lines, setting(fmt.Sprintf("%-20s %d ms", "Stick hold:", d.StickHoldMs), func() {
+				d.StickHoldMs = nextStickHold(d.StickHoldMs)
+				saveDetector()
+			}))
 		}
-		rows = append(rows, row{"Mapping...", "mapping", 0})
-		rows = append(rows, row{fmt.Sprintf("%-20s %s", "Other buttons:", otherButtonsText(cfg)), "other", 0})
-		items := make([]string, len(rows))
-		for i, r := range rows {
-			items[i] = r.text
-		}
-		sel := bindingPicker(stdscr, "Attract Mode", items, selected)
-		if sel < 0 {
-			break
-		}
-		selected = sel
-		if sel == len(items) {
-			// Restore defaults: attract mode's mapping.
-			previous := copyBinds(cfg.AttractControls)
-			cfg.AttractControls = config.DefaultAttractControlsCopy()
-			saveErr(stdscr, config.SaveAttractControls(cfg, previous))
-			continue
-		}
-		r := rows[sel]
-		switch r.kind {
-		case "mapping":
-			attractMapping(stdscr, cfg)
-		case "other":
-			cfg.Attract.OtherInput = nextOtherButtons(cfg)
-			saveErr(stdscr, config.SaveValues(cfg.Path, "Attract", [][2]string{{"OtherInput", cfg.Attract.OtherInput}}))
-		default:
-			switch r.kind {
-			case "switch":
-				*switches[r.i].on = !*switches[r.i].on
-			case "sticks":
-				cfg.InputDetector.Sticks = !cfg.InputDetector.Sticks
-			case "hold":
-				cfg.InputDetector.StickHoldMs = nextStickHold(cfg.InputDetector.StickHoldMs)
-			}
-			saveErr(stdscr, config.SaveInputDetector(cfg))
-		}
-	}
-	clearScreen(stdscr)
+		return append(lines,
+			opens("Mapping...", func() { attractMapping(stdscr, cfg) }),
+			setting(fmt.Sprintf("%-20s %s", "Other buttons:", otherButtonsText(cfg)), func() {
+				cfg.Attract.OtherInput = nextOtherButtons(cfg)
+				saveErr(stdscr, config.SaveValues(cfg.Path, "Attract", [][2]string{{"OtherInput", cfg.Attract.OtherInput}}))
+			}),
+			restoreDefaults(func() {
+				// Attract mode's mapping.
+				previous := copyBinds(cfg.AttractControls)
+				cfg.AttractControls = config.DefaultAttractControlsCopy()
+				saveErr(stdscr, config.SaveAttractControls(cfg, previous))
+			}),
+		)
+	}}).run(stdscr)
 }
 
 // attractMapping is Controls -> Attract Mode -> Mapping: attract mode's
 // actions and the keys, buttons and mouse buttons bound to them.
 func attractMapping(stdscr *gc.Window, cfg *config.Config) {
-	selected := 0
-	for {
-		var items []string
+	(&menuScreen{title: "Attract Mapping", wide: true, lines: func() []menuLine {
+		var lines []menuLine
 		for _, act := range config.AttractActions {
-			items = append(items, fmt.Sprintf("%-20s %s", attractActionNames[act]+":", attractBindingText(cfg, act)))
+			act := act
+			lines = append(lines, setting(fmt.Sprintf("%-20s %s", attractActionNames[act]+":", attractBindingText(cfg, act)), func() {
+				ev, ok := waitForInput(stdscr, fmt.Sprintf("Press a key, button or mouse button for\n%s (a bound one removes it, wait %ds to cancel)",
+					attractActionNames[act], int(bindTimeout.Seconds())))
+				if !ok {
+					return
+				}
+				previous := copyBinds(cfg.AttractControls)
+				binds := cfg.AttractControls[ev.Kind]
+				if binds == nil {
+					binds = map[string]string{}
+					cfg.AttractControls[ev.Kind] = binds
+				}
+				name := strings.ToLower(ev.Name)
+				if binds[name] == act {
+					delete(binds, name)
+				} else {
+					binds[name] = act // also takes it off any other action
+				}
+				saveErr(stdscr, config.SaveAttractControls(cfg, previous))
+			}))
 		}
-		sel := bindingPicker(stdscr, "Attract Mapping", items, selected)
-		if sel < 0 {
-			break
-		}
-		selected = sel
-		previous := copyBinds(cfg.AttractControls)
-		if sel == len(items) {
+		return append(lines, restoreDefaults(func() {
+			previous := copyBinds(cfg.AttractControls)
 			cfg.AttractControls = config.DefaultAttractControlsCopy()
 			saveErr(stdscr, config.SaveAttractControls(cfg, previous))
-			continue
-		}
-		act := config.AttractActions[sel]
-		ev, ok := waitForInput(stdscr, fmt.Sprintf("Press a key, button or mouse button for\n%s (a bound one removes it, wait %ds to cancel)",
-			attractActionNames[act], int(bindTimeout.Seconds())))
-		if !ok {
-			continue
-		}
-		binds := cfg.AttractControls[ev.Kind]
-		if binds == nil {
-			binds = map[string]string{}
-			cfg.AttractControls[ev.Kind] = binds
-		}
-		name := strings.ToLower(ev.Name)
-		if binds[name] == act {
-			delete(binds, name)
-		} else {
-			binds[name] = act // also takes it off any other action
-		}
-		saveErr(stdscr, config.SaveAttractControls(cfg, previous))
-	}
-	clearScreen(stdscr)
+		}))
+	}}).run(stdscr)
 }
 
 // waitForInput waits for a press from the input detectors. Mouse movement

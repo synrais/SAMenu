@@ -132,150 +132,81 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 	// Each group stays open after its screens, with the same entry
 	// highlighted, until Back. Rebuilding the database and starting
 	// attract mode leave the options straight away.
-	groups := []string{"Game Database", "Attract Mode", "Display & Sorting", "Controls", "Music Player", "Video Player", "Startup"}
-	group := 0
-	for {
-		sel, ok := optionsList(stdscr, "Options", groups, group)
-		if !ok {
-			return nil, nil
-		}
-		group = sel
-
-		var newFiles []MenuFile
-		var err error
-		leave := false
-		switch sel {
-		case 0:
-			newFiles, leave, err = optionsGroup(stdscr, "Game Database", []string{
-				"Rebuild games database...",
-				"Database systems...",
-				"Cores...",
-			}, nil, func(i int) ([]MenuFile, bool, error) {
-				if i == 2 {
-					coresScreen(stdscr, cfg, sysIds)
-					return nil, false, nil
-				}
-				if i == 0 {
+	var newFiles []MenuFile
+	var err error
+	leave := false // the options are finished: rebuilt, or attract started
+	// group opens one group of options, leaving them all when it's done.
+	group := func(title string, lines ...menuLine) menuLine {
+		return opens(title, nil).leaves(func() bool {
+			(&menuScreen{title: title, lines: func() []menuLine { return lines }}).run(stdscr)
+			return leave
+		})
+	}
+	rebuild := func() bool {
+		newFiles, err = generateIndexWindow(cfg, stdscr)
+		leave = true
+		return true
+	}
+	options := &menuScreen{title: "Options", lines: func() []menuLine {
+		return []menuLine{
+			group("Game Database",
+				opens("Rebuild games database...", nil).leaves(func() bool {
 					// A quick double press on entering Options lands here, so
 					// ask first, with Cancel highlighted.
-					if !confirm(stdscr, "Rebuild the games database?", "Rebuild (can take a few minutes)", "Cancel") {
-						return nil, false, nil
-					}
-				}
-				if i == 0 || databaseSystemsScreen(stdscr, cfg) {
-					f, err := generateIndexWindow(cfg, stdscr)
-					return f, true, err
-				}
-				return nil, false, nil
-			})
-		case 1:
-			newFiles, leave, err = optionsGroup(stdscr, "Attract Mode", []string{
-				"Start attract mode",
-				"Attract mode settings...",
-				"Playlists...",
-				"Detector & list settings...",
-			}, map[int]string{0: "Start"}, func(i int) ([]MenuFile, bool, error) {
-				switch i {
-				case 0:
-					if err := startAttractInBackground(); err != nil {
+					return confirm(stdscr, "Rebuild the games database?", "Rebuild (can take a few minutes)", "Cancel") && rebuild()
+				}),
+				opens("Database systems...", nil).leaves(func() bool {
+					return databaseSystemsScreen(stdscr, cfg) && rebuild()
+				}),
+				opens("Cores...", func() { coresScreen(stdscr, cfg, sysIds) }),
+			),
+			group("Attract Mode",
+				action("Start", "Start attract mode", nil).leaves(func() bool {
+					if e := startAttractInBackground(); e != nil {
 						_ = curses.InfoBox(stdscr, "Error",
-							fmt.Sprintf("Failed to start attract mode: %v", err), false, true)
-						return nil, false, nil
+							fmt.Sprintf("Failed to start attract mode: %v", e), false, true)
+						return false
 					}
-					return nil, true, errAttractStarted // the menu exits, attract mode carries on
-				case 1:
-					attractSettingsScreen(stdscr, cfg, sysIds)
-				case 2:
-					playlistsScreen(stdscr, cfg, files)
-				case 3:
-					detectorSettingsScreen(stdscr, cfg)
-				}
-				return nil, false, nil
-			})
-		case 2:
-			newFiles, leave, err = optionsGroup(stdscr, "Display & Sorting", []string{
-				"Menu list options...",
-				"Menu list sorting...",
-				"Game list sorting...",
-				"Virtual A-Z Folders...",
-				"[Pick Random Game]...",
-				"[Genre Collection]...",
-				"[Favourites]...",
-				"[History]...",
-			}, nil, func(i int) ([]MenuFile, bool, error) {
-				switch i {
-				case 0:
-					menuListOptions(stdscr, sysIds, cfg)
-				case 1:
-					systemsSortOptions(stdscr, sysIds, cfg)
-				case 2:
-					gameSortOptions(stdscr, cfg)
-				case 3:
-					azFoldersScreen(stdscr, cfg, sysIds)
-				case 4:
-					randomGameScreen(stdscr, cfg)
-				case 5:
-					genresScreen(stdscr, cfg, files)
-				case 6:
-					favouritesScreen(stdscr, cfg)
-				case 7:
-					historyScreen(stdscr, cfg)
-				}
-				return nil, false, nil
-			})
-		case 3:
-			controlsScreen(stdscr, cfg, sysIds)
-		case 4:
-			musicScreen(stdscr, cfg)
-		case 5:
-			videoScreen(stdscr, cfg)
-		case 6:
-			startupScreen(stdscr, cfg)
+					err, leave = errAttractStarted, true // the menu exits, attract mode carries on
+					return true
+				}),
+				opens("Attract mode settings...", func() { attractSettingsScreen(stdscr, cfg, sysIds) }),
+				opens("Playlists...", func() { playlistsScreen(stdscr, cfg, files) }),
+				opens("Detector & list settings...", func() { detectorSettingsScreen(stdscr, cfg) }),
+			),
+			group("Display & Sorting",
+				opens("Menu list options...", func() { menuListOptions(stdscr, sysIds, cfg) }),
+				opens("Menu list sorting...", func() { systemsSortOptions(stdscr, sysIds, cfg) }),
+				opens("Game list sorting...", func() { gameSortOptions(stdscr, cfg) }),
+				opens("Virtual A-Z Folders...", func() { azFoldersScreen(stdscr, cfg, sysIds) }),
+				opens("[Pick Random Game]...", func() { randomGameScreen(stdscr, cfg) }),
+				opens("[Genre Collection]...", func() { genresScreen(stdscr, cfg, files) }),
+				opens("[Favourites]...", func() { favouritesScreen(stdscr, cfg) }),
+				opens("[History]...", func() { historyScreen(stdscr, cfg) }),
+			),
+			opens("Controls", func() { controlsScreen(stdscr, cfg, sysIds) }),
+			opens("Music Player", func() { musicScreen(stdscr, cfg) }),
+			opens("Video Player", func() { videoScreen(stdscr, cfg) }),
+			opens("Startup", func() { startupScreen(stdscr, cfg) }),
 		}
-		if err != nil || leave {
-			return newFiles, err
-		}
-	}
+	}}
+	options.run(stdscr)
+	return newFiles, err
 }
 
-// optionsGroup shows one group of options until Back, or until an entry
-// says to leave the options altogether.
-func optionsGroup(stdscr *gc.Window, title string, items []string, labels map[int]string,
-	run func(i int) ([]MenuFile, bool, error)) ([]MenuFile, bool, error) {
-	selected := 0
-	for {
-		sel, ok := optionsListWith(stdscr, title, items, selected, labels)
-		if !ok {
-			return nil, false, nil
-		}
-		selected = sel
-		files, leave, err := run(sel)
-		if err != nil || leave {
-			return files, leave, err
-		}
-	}
-}
-
-// optionsList shows a list of options and returns the one chosen, or false
-// for Back. The button names what each line does (see actionLabel).
+// optionsList shows a list of choices and returns the one chosen, or false
+// for Back.
 func optionsList(stdscr *gc.Window, title string, items []string, selected int) (int, bool) {
-	return optionsListWith(stdscr, title, items, selected, nil)
-}
-
-// optionsListWith is optionsList with the button labels of lines that
-// do something of their own (see lineLabels).
-func optionsListWith(stdscr *gc.Window, title string, items []string, selected int, labels map[int]string) (int, bool) {
 	clearScreen(stdscr)
 	button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-		Shortcuts:          menuShortcuts(),
-		Title:              title,
-		Buttons:            []string{"Select", "Back"},
-		DefaultButton:      0,
-		ActionButton:       0,
-		Width:              60,
-		Height:             len(items) + 4,
-		InitialIndex:       selected,
-		DynamicActionLabel: lineLabels(items, labels),
+		Shortcuts:     menuShortcuts(),
+		Title:         title,
+		Buttons:       []string{"Select", "Back"},
+		DefaultButton: 0,
+		ActionButton:  0,
+		Width:         60,
+		Height:        len(items) + 4,
+		InitialIndex:  selected,
 	}, items)
 	clearScreen(stdscr)
 	if err != nil || button != 0 || sel < 0 || sel >= len(items) {

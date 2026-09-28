@@ -22,48 +22,39 @@ import (
 // the one in use (Normal = the usual setup), create, edit, rename, delete.
 
 func playlistsScreen(stdscr *gc.Window, cfg *config.Config, files []MenuFile) {
-	selected := 0
-	for {
+	(&menuScreen{title: "Playlists", lines: func() []menuLine {
 		names := cfg.PlaylistNames()
 		active := "Normal"
 		if p := cfg.ActivePlaylist(); p != nil {
 			active = p.Name
 		}
-		items := []string{fmt.Sprintf("%-22s %s", "Attract mode plays:", active)}
-		labels := map[int]string{}
-		for _, n := range names {
-			labels[len(items)] = "Edit"
-			items = append(items, "Edit: "+n)
-		}
-		items = append(items, "New playlist...")
-		sel, ok := optionsListWith(stdscr, "Playlists", items, selected, labels)
-		if !ok {
-			return
-		}
-		selected = sel
-		switch {
-		case sel == 0:
+		lines := []menuLine{setting(fmt.Sprintf("%-22s %s", "Attract mode plays:", active), func() {
 			// Cycle through Normal and the playlists.
 			if err := config.SetActivePlaylist(cfg, nextOf(append([]string{"Normal"}, names...), active)); err != nil {
 				message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
 			}
-		case sel == len(items)-1:
+		})}
+		for _, n := range names {
+			n := n
+			lines = append(lines, action("Edit", "Edit: "+n, func() {
+				if p := cfg.Playlists[strings.ToLower(n)]; p != nil {
+					editPlaylist(stdscr, cfg, files, p)
+				}
+			}))
+		}
+		return append(lines, opens("New playlist...", func() {
 			name, ok := askPlaylistName(stdscr, cfg, "")
 			if !ok {
-				continue
+				return
 			}
 			p := &config.Playlist{Name: name, Systems: map[string][]string{}, Others: config.OthersLeaveOut}
 			if err := config.SavePlaylist(cfg, p); err != nil {
 				message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
-				continue
+				return
 			}
 			editPlaylist(stdscr, cfg, files, p)
-		default:
-			if p := cfg.Playlists[strings.ToLower(names[sel-1])]; p != nil {
-				editPlaylist(stdscr, cfg, files, p)
-			}
-		}
-	}
+		}))
+	}}).run(stdscr)
 }
 
 // askPlaylistName asks for a new playlist name on the on-screen keyboard.
@@ -258,83 +249,75 @@ func editPlaylist(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *co
 			message(stdscr, fmt.Sprintf("Couldn't save: %v", err))
 		}
 	}
-	selected := 1
-	for {
+	(&menuScreen{titleOf: func() string { return "Playlist: " + p.Name }, selected: 1, lines: func() []menuLine {
 		all := "none"
 		if len(p.All) > 0 {
 			all = config.GenreLabels(p.All)
 		}
-		items := []string{
-			"Plays: " + config.DescribePlaylist(p, nameOf),
-			fmt.Sprintf("%-18s %s", "All systems:", all),
-			fmt.Sprintf("%-18s %d picked", "Per system:", len(p.Systems)),
-			othersLine(p),
-			fmt.Sprintf("%-23s %s", "Skip:", skipText(p)),
-			fmt.Sprintf("%-23s %s", "Leave out systems:", leftOutText(p, nameOf)),
-			"Rename...",
-			"Delete this playlist",
-		}
-		// Plays is only information: no button, pressing it does nothing.
-		sel, ok := optionsListWith(stdscr, "Playlist: "+p.Name, items, selected, map[int]string{0: "", 7: "Delete"})
-		if !ok {
-			return
-		}
-		selected = sel
-		switch sel {
-		case 1:
-			if picked, changed := tickGenres(stdscr, cfg, "Genres for all systems", files, "", p.All); changed {
-				p.All = picked
+		return []menuLine{
+			info("Plays: " + config.DescribePlaylist(p, nameOf)),
+			setting(fmt.Sprintf("%-18s %s", "All systems:", all), func() {
+				if picked, changed := tickGenres(stdscr, cfg, "Genres for all systems", files, "", p.All); changed {
+					p.All = picked
+					save()
+				}
+			}),
+			setting(fmt.Sprintf("%-18s %d picked", "Per system:", len(p.Systems)), func() {
+				perSystemGenres(stdscr, cfg, files, p, nameOf, save)
+			}),
+			setting(othersLine(p), func() {
+				p.Others = nextOf([]string{config.OthersAsNormal, config.OthersLeaveOut}, p.Others)
 				save()
-			}
-		case 2:
-			perSystemGenres(stdscr, cfg, files, p, nameOf, save)
-		case 3:
-			p.Others = nextOf([]string{config.OthersAsNormal, config.OthersLeaveOut}, p.Others)
-			save()
-		case 4:
-			words, kept := skipWords(p.Skip)
-			title := "Skip games containing (words, space between)"
-			if len(kept) > 0 {
-				title += fmt.Sprintf(" +%d in ini", len(kept))
-			}
-			// The live count shows how many games the words would skip.
-			count := newPatternCounter(files, skipPatterns)
-			button, text, err := curses.OnScreenKeyboardWith(stdscr, title,
-				[]string{"OK", "Cancel"}, words,
-				curses.KeyboardOpts{PadKeys: true, OnTextChange: count.changed, Status: count.status})
-			if err != nil || button != 0 {
-				continue
-			}
-			p.Skip = append(skipPatterns(text), kept...)
-			save()
-		case 5:
-			leaveOutSystems(stdscr, files, p, save)
-		case 6:
-			name, ok := askPlaylistName(stdscr, cfg, p.Name)
-			if !ok || name == p.Name {
-				continue
-			}
-			old := p.Name
-			wasActive := strings.EqualFold(cfg.Attract.Playlist, old)
-			if err := config.RemoveSection(cfg.Path, "Playlist."+old); err != nil {
-				message(stdscr, fmt.Sprintf("Couldn't rename: %v", err))
-				continue
-			}
-			delete(cfg.Playlists, strings.ToLower(old))
-			p.Name = name
-			save()
-			if wasActive {
-				_ = config.SetActivePlaylist(cfg, name)
-			}
-		case 7:
-			if confirm(stdscr, "Delete "+p.Name+"?", "Delete it", "Keep it") {
+			}),
+			setting(fmt.Sprintf("%-23s %s", "Skip:", skipText(p)), func() {
+				words, kept := skipWords(p.Skip)
+				title := "Skip games containing (words, space between)"
+				if len(kept) > 0 {
+					title += fmt.Sprintf(" +%d in ini", len(kept))
+				}
+				// The live count shows how many games the words would skip.
+				count := newPatternCounter(files, skipPatterns)
+				button, text, err := curses.OnScreenKeyboardWith(stdscr, title,
+					[]string{"OK", "Cancel"}, words,
+					curses.KeyboardOpts{PadKeys: true, OnTextChange: count.changed, Status: count.status})
+				if err != nil || button != 0 {
+					return
+				}
+				p.Skip = append(skipPatterns(text), kept...)
+				save()
+			}),
+			setting(fmt.Sprintf("%-23s %s", "Leave out systems:", leftOutText(p, nameOf)), func() {
+				leaveOutSystems(stdscr, files, p, save)
+			}),
+			opens("Rename...", func() {
+				name, ok := askPlaylistName(stdscr, cfg, p.Name)
+				if !ok || name == p.Name {
+					return
+				}
+				old := p.Name
+				wasActive := strings.EqualFold(cfg.Attract.Playlist, old)
+				if err := config.RemoveSection(cfg.Path, "Playlist."+old); err != nil {
+					message(stdscr, fmt.Sprintf("Couldn't rename: %v", err))
+					return
+				}
+				delete(cfg.Playlists, strings.ToLower(old))
+				p.Name = name
+				save()
+				if wasActive {
+					_ = config.SetActivePlaylist(cfg, name)
+				}
+			}),
+			action("Delete", "Delete this playlist", nil).leaves(func() bool {
+				if !confirm(stdscr, "Delete "+p.Name+"?", "Delete it", "Keep it") {
+					return false
+				}
 				if err := config.DeletePlaylist(cfg, p.Name); err != nil {
 					message(stdscr, fmt.Sprintf("Couldn't delete: %v", err))
 				}
-				return
-			}
+				return true
+			}),
 		}
-	}
+	}}).run(stdscr)
 }
 
 // perSystemGenres lists the systems that have genres (with their picks),
@@ -358,31 +341,27 @@ func perSystemGenres(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p 
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool { return strings.ToLower(nameOf(ids[i])) < strings.ToLower(nameOf(ids[j])) })
-	selected := 0
-	for {
-		items := make([]string, len(ids))
+	(&menuScreen{title: "Per system: " + p.Name, lines: func() []menuLine {
+		lines := make([]menuLine, len(ids))
 		for i, id := range ids {
+			id := id
 			picks := "-"
 			if g := p.Systems[id]; len(g) > 0 {
 				picks = strings.Join(g, ", ")
 			}
-			items[i] = fmt.Sprintf("%-22s %s", nameOf(id), picks)
+			lines[i] = opens(fmt.Sprintf("%-22s %s", nameOf(id), picks), func() {
+				if picked, changed := tickGenres(stdscr, cfg, "Genres for "+nameOf(id), files, id, p.Systems[id]); changed {
+					if len(picked) == 0 {
+						delete(p.Systems, id)
+					} else {
+						p.Systems[id] = picked
+					}
+					save()
+				}
+			})
 		}
-		sel, ok := optionsList(stdscr, "Per system: "+p.Name, items, selected)
-		if !ok {
-			return
-		}
-		selected = sel
-		id := ids[sel]
-		if picked, changed := tickGenres(stdscr, cfg, "Genres for "+nameOf(id), files, id, p.Systems[id]); changed {
-			if len(picked) == 0 {
-				delete(p.Systems, id)
-			} else {
-				p.Systems[id] = picked
-			}
-			save()
-		}
-	}
+		return lines
+	}}).run(stdscr)
 }
 
 // othersLine shows what happens to systems with no genres picked. With

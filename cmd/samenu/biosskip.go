@@ -74,56 +74,50 @@ func splitSequence(seq string) []string {
 // biosSkipScreen is Options -> Controls -> BIOS Skip.
 func biosSkipScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 	nameOf := games.DisplayName
-	selected := 0
-	for {
+	(&menuScreen{title: "BIOS Skip", wide: true, lines: func() []menuLine {
 		ids := make([]string, 0, len(cfg.AutoInput.Sequences))
 		for id := range cfg.AutoInput.Sequences {
 			ids = append(ids, id)
 		}
 		sort.Slice(ids, func(i, j int) bool { return strings.ToLower(nameOf(ids[i])) < strings.ToLower(nameOf(ids[j])) })
-		items := []string{fmt.Sprintf("%-22s %s", "Used for:", biosSkipText(cfg))}
-		for _, id := range ids {
-			items = append(items, fmt.Sprintf("%-22s %s", nameOf(id)+":", strings.Join(splitSequence(cfg.AutoInput.Sequences[id]), ", ")))
-		}
-		items = append(items, "Add a system...")
-		sel := bindingPicker(stdscr, "BIOS Skip", items, selected)
-		if sel < 0 {
-			break
-		}
-		selected = sel
-		switch {
-		case sel == len(items):
-			// Restore defaults: Both, and only the FDS's sequence.
-			for _, id := range ids {
-				saveErr(stdscr, config.SaveBiosSequence(cfg, properSystemID(id), ""))
-			}
-			cfg.AutoInput.Attract, cfg.AutoInput.Menu = true, true
-			saveErr(stdscr, config.SaveBiosSequence(cfg, "FDS", "10, a"), saveBiosWhen(cfg))
-		case sel == 0:
+		lines := []menuLine{setting(fmt.Sprintf("%-22s %s", "Used for:", biosSkipText(cfg)), func() {
 			nextBiosSkip(cfg)
 			saveErr(stdscr, saveBiosWhen(cfg))
-		case sel == len(items)-1:
-			// Pick a system without a sequence yet.
-			var choices, choiceIDs []string
-			for _, id := range systemIDs(sysNames) {
-				if _, has := cfg.AutoInput.Sequences[strings.ToLower(id)]; !has && !strings.EqualFold(id, "Arcade") {
-					choices = append(choices, nameOf(id))
-					choiceIDs = append(choiceIDs, id)
-				}
-			}
-			if len(choices) == 0 {
-				message(stdscr, "Every system already has a sequence.")
-				continue
-			}
-			if c, ok := optionsList(stdscr, "Add BIOS skip for", choices, 0); ok {
-				biosSequenceEditor(stdscr, cfg, choiceIDs[c], nameOf(choiceIDs[c]))
-			}
-		default:
-			id := ids[sel-1]
-			biosSequenceEditor(stdscr, cfg, properSystemID(id), nameOf(id))
+		})}
+		for _, id := range ids {
+			id := id
+			lines = append(lines, setting(fmt.Sprintf("%-22s %s", nameOf(id)+":", strings.Join(splitSequence(cfg.AutoInput.Sequences[id]), ", ")), func() {
+				biosSequenceEditor(stdscr, cfg, properSystemID(id), nameOf(id))
+			}))
 		}
-	}
-	clearScreen(stdscr)
+		return append(lines,
+			opens("Add a system...", func() {
+				// Pick a system without a sequence yet.
+				var choices, choiceIDs []string
+				for _, id := range systemIDs(sysNames) {
+					if _, has := cfg.AutoInput.Sequences[strings.ToLower(id)]; !has && !strings.EqualFold(id, "Arcade") {
+						choices = append(choices, nameOf(id))
+						choiceIDs = append(choiceIDs, id)
+					}
+				}
+				if len(choices) == 0 {
+					message(stdscr, "Every system already has a sequence.")
+					return
+				}
+				if c, ok := optionsList(stdscr, "Add BIOS skip for", choices, 0); ok {
+					biosSequenceEditor(stdscr, cfg, choiceIDs[c], nameOf(choiceIDs[c]))
+				}
+			}),
+			restoreDefaults(func() {
+				// Both, and only the FDS's sequence.
+				for _, id := range ids {
+					saveErr(stdscr, config.SaveBiosSequence(cfg, properSystemID(id), ""))
+				}
+				cfg.AutoInput.Attract, cfg.AutoInput.Menu = true, true
+				saveErr(stdscr, config.SaveBiosSequence(cfg, "FDS", "10, a"), saveBiosWhen(cfg))
+			}),
+		)
+	}}).run(stdscr)
 }
 
 func saveBiosWhen(cfg *config.Config) error {
@@ -139,49 +133,36 @@ func biosSequenceEditor(stdscr *gc.Window, cfg *config.Config, id, name string) 
 	save := func() {
 		saveErr(stdscr, config.SaveBiosSequence(cfg, id, strings.Join(steps, ", ")))
 	}
-	selected := len(steps)
-	for {
-		var items []string
+	m := &menuScreen{title: "BIOS skip: " + name, wide: true, selected: len(steps)}
+	m.lines = func() []menuLine {
+		var lines []menuLine
 		for i, t := range steps {
-			items = append(items, fmt.Sprintf("%d. %s", i+1, stepText(t)))
+			i := i
+			lines = append(lines, opens(fmt.Sprintf("%d. %s", i+1, stepText(t)), func() {
+				if confirm(stdscr, fmt.Sprintf("Step %d: %s", i+1, stepText(steps[i])), "Remove it", "Keep it") {
+					steps = append(steps[:i], steps[i+1:]...)
+					save()
+				}
+			}))
 		}
-		addPress, addWait := len(items), len(items)+1
-		items = append(items, "Add a press...", "Add a wait...")
-		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
-			Title:              "BIOS skip: " + name,
-			Buttons:            []string{"Select", "Back"},
-			ActionButton:       0,
-			DefaultButton:      0,
-			Width:              optionsWidth,
-			Height:             len(items) + 4,
-			InitialIndex:       selected,
-			DynamicActionLabel: lineLabels(items, nil),
-		}, items)
-		if err != nil || button != 0 {
-			break
-		}
-		selected = sel
-		switch sel {
-		case addPress:
-			if t, ok := captureBiosStep(stdscr); ok {
-				steps = append(steps, t)
-				save()
-				selected = len(steps)
-			}
-		case addWait:
-			if c, ok := optionsList(stdscr, "Wait how many seconds?", biosWaits, 5); ok {
-				steps = append(steps, biosWaits[c])
-				save()
-				selected = len(steps) + 1
-			}
-		default:
-			if confirm(stdscr, fmt.Sprintf("Step %d: %s", sel+1, stepText(steps[sel])), "Remove it", "Keep it") {
-				steps = append(steps[:sel], steps[sel+1:]...)
-				save()
-			}
-		}
+		return append(lines,
+			opens("Add a press...", func() {
+				if t, ok := captureBiosStep(stdscr); ok {
+					steps = append(steps, t)
+					save()
+					m.selected = len(steps) // still on Add a press
+				}
+			}),
+			opens("Add a wait...", func() {
+				if c, ok := optionsList(stdscr, "Wait how many seconds?", biosWaits, 5); ok {
+					steps = append(steps, biosWaits[c])
+					save()
+					m.selected = len(steps) + 1 // still on Add a wait
+				}
+			}),
+		)
 	}
-	clearScreen(stdscr)
+	m.run(stdscr)
 }
 
 // captureBiosStep waits for a button or key for a BIOS skip step, named

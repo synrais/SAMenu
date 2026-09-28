@@ -1,54 +1,139 @@
 package main
 
 import (
-	"strings"
-
 	gc "github.com/rthornton128/goncurses"
+
+	"github.com/synrais/SAMenu/pkg/curses"
 )
 
 // -------------------------
-// Menu helpers
+// Menu screens
 // -------------------------
 //
-// Small pieces shared by the options screens, so each works the same way
-// everywhere: the button label for a line, asking yes or no, and moving a
-// setting on to its next value.
+// An options screen is a list of lines, each knowing what it is and what
+// pressing it does. The button names what that is, so every screen reads
+// the same way:
+//
+//	opens    "Mapping..."        Select   (another screen, or a choice)
+//	setting  "Playback: Random"  Change
+//	action   "Next track"        its own verb (Start, Play, Delete...)
+//	info     "Plays: ..."        no button, pressing does nothing
+//	restore  "Restore defaults"  Restore
+//
+// Lines are found by what they are, not their place in the list, so a line
+// can be added anywhere without renumbering the others.
 
-// actionLabel is the button label for a menu line, from how it reads:
-//
-//	"Restore defaults"   Restore
-//	"Mapping..."         Select (opens another screen)
-//	"Playback:  Random"  Change (a setting)
-//	anything else        Select (a choice)
-//
-// Lines that do something else (Start, Play, Delete...) are given their own
-// label by the screen, see lineLabels.
-func actionLabel(item string) string {
-	switch {
-	case item == "Restore defaults":
-		return "Restore"
-	case strings.HasSuffix(item, "..."):
-		return "Select"
-	case strings.Contains(item, ":"):
-		return "Change"
-	}
-	return "Select"
+type menuLine struct {
+	text  string
+	label string      // the button: what pressing does ("" = nothing)
+	press func() bool // true leaves the screen; nil for information
 }
 
-// lineLabels gives each line its button label: the screen's own label for
-// that line if it has one ("" shows no button: pressing it does nothing),
-// otherwise actionLabel.
-func lineLabels(items []string, labels map[int]string) func(int) string {
-	return func(i int) string {
-		if l, ok := labels[i]; ok {
-			return l
+// opens is a line that opens another screen (or makes a choice).
+func opens(text string, press func()) menuLine {
+	return menuLine{text, "Select", stay(press)}
+}
+
+// setting is a line showing a setting ("Name: value"), changed by pressing.
+func setting(text string, press func()) menuLine {
+	return menuLine{text, "Change", stay(press)}
+}
+
+// action is a line that does something straight away, named by label.
+func action(label, text string, press func()) menuLine {
+	return menuLine{text, label, stay(press)}
+}
+
+// info is a line that only shows something: no button. It can still be
+// highlighted, so a long one scrolls.
+func info(text string) menuLine {
+	return menuLine{text: text}
+}
+
+// restoreDefaults is a screen's "Restore defaults" line.
+func restoreDefaults(press func()) menuLine {
+	return menuLine{"Restore defaults", "Restore", stay(press)}
+}
+
+// leaves makes pressing a line leave the screen when press says so, e.g.
+// once a playlist is deleted.
+func (l menuLine) leaves(press func() bool) menuLine {
+	l.press = press
+	return l
+}
+
+func stay(press func()) func() bool {
+	return func() bool {
+		if press != nil {
+			press()
 		}
-		if i >= 0 && i < len(items) {
-			return actionLabel(items[i])
-		}
-		return ""
+		return false
 	}
 }
+
+// menuScreen is one options screen.
+type menuScreen struct {
+	title    string
+	titleOf  func() string // instead of title, when it can change (a rename)
+	wide     bool          // the wider options width, for long lines
+	selected int           // the line highlighted: set it from a press to move on
+	lines    func() []menuLine
+}
+
+// run shows the screen until Back, or until a line leaves it. The lines
+// are made again after every press, so they show the current values.
+func (m *menuScreen) run(stdscr *gc.Window) {
+	for {
+		lines := m.lines()
+		if len(lines) == 0 {
+			return
+		}
+		items := make([]string, len(lines))
+		for i, l := range lines {
+			items[i] = l.text
+		}
+		if m.selected >= len(lines) {
+			m.selected = len(lines) - 1
+		}
+		title := m.title
+		if m.titleOf != nil {
+			title = m.titleOf()
+		}
+		width := 60
+		if m.wide {
+			width = optionsWidth
+		}
+		clearScreen(stdscr)
+		button, sel, err := curses.ListPicker(stdscr, curses.ListPickerOpts{
+			Shortcuts:     menuShortcuts(),
+			Title:         title,
+			Buttons:       []string{"Select", "Back"},
+			DefaultButton: 0,
+			ActionButton:  0,
+			Width:         width,
+			Height:        len(items) + 4,
+			InitialIndex:  m.selected,
+			DynamicActionLabel: func(i int) string {
+				if i >= 0 && i < len(lines) {
+					return lines[i].label
+				}
+				return ""
+			},
+		}, items)
+		clearScreen(stdscr)
+		if err != nil || button != 0 || sel < 0 || sel >= len(lines) {
+			return
+		}
+		m.selected = sel
+		if press := lines[sel].press; press != nil && press() {
+			return
+		}
+	}
+}
+
+// -------------------------
+// Shared helpers
+// -------------------------
 
 // landingButton is the button highlighted when a list shows again: its
 // action button (Open, Pick...), or after backing out of something, its Back

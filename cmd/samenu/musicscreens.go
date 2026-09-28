@@ -28,57 +28,52 @@ func playlistName(p string) string {
 // track, and its settings ([Music], and [Startup] Music).
 func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 	m := &cfg.Music
-	selected := 0
-	for {
+	save := func() {
+		if err := config.SaveValues(cfg.Path, "Music", [][2]string{
+			{"Playback", m.Playback}, {"Playlist", m.Playlist}, {"PauseInGames", strconv.FormatBool(m.PauseInGames)},
+		}); err != nil {
+			message(stdscr, fmt.Sprintf("Couldn't do that: %v", err))
+		}
+	}
+	(&menuScreen{title: "Music Player", lines: func() []menuLine {
 		playing := music.Running()
 		toggle, verb := "Start music", "Start"
 		if playing {
 			toggle, verb = "Stop music", "Stop"
 		}
-		items := []string{
-			fmt.Sprintf("%-22s (%s)", toggle, music.Status()),
-			"Next track",
-			fmt.Sprintf("%-22s %s", "Playback:", m.Playback),
-			fmt.Sprintf("%-22s %s", "Playlist:", playlistName(m.Playlist)),
-			fmt.Sprintf("%-22s %s", "Pause during games:", onOffText(m.PauseInGames)),
-		}
-		sel, ok := optionsListWith(stdscr, "Music Player", items, selected, map[int]string{0: verb, 1: "Next"})
-		if !ok {
-			return
-		}
-		selected = sel
-		var err error
-		switch sel {
-		case 0:
-			if playing {
-				music.Stop()
-			} else {
-				var exe string
-				if exe, err = os.Executable(); err == nil {
+		return []menuLine{
+			action(verb, fmt.Sprintf("%-22s (%s)", toggle, music.Status()), func() {
+				if playing {
+					music.Stop()
+					return
+				}
+				exe, err := os.Executable()
+				if err == nil {
 					err = music.Start(exe)
 				}
-			}
-		case 1:
-			if music.Send("next") != nil {
-				message(stdscr, "The music player isn't running.")
-			}
-			continue
-		case 2:
-			m.Playback = nextOf([]string{"Random", "In order"}, m.Playback)
-		case 3:
-			m.Playlist = nextOf(music.Playlists(), m.Playlist)
-		case 4:
-			m.PauseInGames = !m.PauseInGames
+				if err != nil {
+					message(stdscr, fmt.Sprintf("Couldn't do that: %v", err))
+				}
+			}),
+			action("Next", "Next track", func() {
+				if music.Send("next") != nil {
+					message(stdscr, "The music player isn't running.")
+				}
+			}),
+			setting(fmt.Sprintf("%-22s %s", "Playback:", m.Playback), func() {
+				m.Playback = nextOf([]string{"Random", "In order"}, m.Playback)
+				save()
+			}),
+			setting(fmt.Sprintf("%-22s %s", "Playlist:", playlistName(m.Playlist)), func() {
+				m.Playlist = nextOf(music.Playlists(), m.Playlist)
+				save()
+			}),
+			setting(fmt.Sprintf("%-22s %s", "Pause during games:", onOffText(m.PauseInGames)), func() {
+				m.PauseInGames = !m.PauseInGames
+				save()
+			}),
 		}
-		if sel >= 2 && sel <= 4 {
-			err = config.SaveValues(cfg.Path, "Music", [][2]string{
-				{"Playback", m.Playback}, {"Playlist", m.Playlist}, {"PauseInGames", strconv.FormatBool(m.PauseInGames)},
-			})
-		}
-		if err != nil {
-			message(stdscr, fmt.Sprintf("Couldn't do that: %v", err))
-		}
-	}
+	}}).run(stdscr)
 }
 
 // startupScreen is Options -> Startup: what happens when the MiSTer boots,

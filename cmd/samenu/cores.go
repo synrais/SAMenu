@@ -32,23 +32,18 @@ func coresScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 		message(stdscr, "No systems in the games database yet.")
 		return
 	}
-	selected := 0
-	for {
-		items := make([]string, len(ids))
+	(&menuScreen{title: "Cores", lines: func() []menuLine {
+		lines := make([]menuLine, len(ids))
 		for i, id := range ids {
+			id := id
 			core := mister.DefaultCore(id) + " (default)"
 			if c, ok := mister.SetCoreFor(cfg, id); ok {
 				core = c
 			}
-			items[i] = fmt.Sprintf("%-22s %s", games.DisplayName(id)+":", core)
+			lines[i] = setting(fmt.Sprintf("%-22s %s", games.DisplayName(id)+":", core), func() { chooseCore(stdscr, cfg, id) })
 		}
-		sel, ok := optionsList(stdscr, "Cores", items, selected)
-		if !ok {
-			return
-		}
-		selected = sel
-		chooseCore(stdscr, cfg, ids[sel])
-	}
+		return lines
+	}}).run(stdscr)
 }
 
 // chooseCore browses the core files on every drive, like the games menu:
@@ -121,11 +116,7 @@ func chooseCore(stdscr *gc.Window, cfg *config.Config, id string) {
 		if dir != "" {
 			title = dir
 		}
-		var labels map[int]string
-		if dir == "" {
-			labels = map[int]string{0: "Select"} // "Default: ..." is a choice
-		}
-		sel, ok := optionsListWith(stdscr, title, items, selected, labels)
+		sel, ok := optionsList(stdscr, title, items, selected)
 		if !ok {
 			if dir == "" {
 				return
