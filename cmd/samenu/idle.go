@@ -25,7 +25,8 @@ import (
 // minutes (IdleTime), like a screensaver, counting in the MiSTer menu,
 // in games, or both (IdleWhere). After you choose to play one of attract
 // mode's games, this is what starts it again, with the same history.
-// It stays quiet while attract mode runs and while a video plays.
+// It stays quiet while attract mode runs and while a video plays, its
+// input detectors paused.
 
 const idlePidFile = "/tmp/SAMenu_idle.pid"
 
@@ -73,7 +74,10 @@ func runIdleWatcher() {
 	defer os.Remove(idlePidFile)
 
 	stickRules()
-	events := input.Start(input.Options{Keyboard: true, Mouse: true, Joystick: true, Quiet: true})
+	// The detectors sleep while nothing is being counted (below): attract
+	// mode has its own, and anything they'd see then is ignored anyway.
+	gate := &input.Gate{}
+	events := input.Start(input.Options{Keyboard: true, Mouse: true, Joystick: true, Quiet: true, Gate: gate})
 	cfg := mustConfig()
 	lastInput, lastLoad := time.Now(), time.Now()
 	tick := time.NewTicker(time.Second)
@@ -101,8 +105,10 @@ func runIdleWatcher() {
 			_, busy := mister.Busy() // e.g. update_all: never start over a script
 			if running || busy || video.Playing() || !counts {
 				lastInput = now // not counting: attract mode, a script, a video, or not a place set in Where
+				gate.Pause()
 				continue
 			}
+			gate.Resume()
 			if now.Sub(lastInput) >= time.Duration(cfg.Startup.IdleTime)*time.Minute {
 				_ = startAttractInBackground()
 				lastInput = now

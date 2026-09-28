@@ -295,6 +295,20 @@ type jsDevice struct {
 	runSide []int8
 	run     []int
 	vals    []int16 // each axis's last raw value (the debug view's stick bars)
+	// The state before last, reused for the next read's.
+	spareBtn  []bool
+	spareAxis []int8
+	spareVals []int16
+}
+
+// refill is from copied into spare, grown if it's too small.
+func refill[T any](spare, from []T) []T {
+	if cap(spare) < len(from) {
+		spare = make([]T, len(from))
+	}
+	spare = spare[:len(from)]
+	copy(spare, from)
+	return spare
 }
 
 // jsInfo reads a controller's name and USB/Bluetooth IDs from sysfs.
@@ -400,12 +414,11 @@ func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
 	if err != nil {
 		return err
 	}
-	btn := make([]bool, len(d.btn))
-	copy(btn, d.btn)
-	axis := make([]int8, len(d.axis))
-	copy(axis, d.axis)
-	vals := make([]int16, len(d.vals))
-	copy(vals, d.vals)
+	// This read's state starts as the last one, in the spare copies (40
+	// reads a second: no new memory for each).
+	btn := refill(d.spareBtn, d.btn)
+	axis := refill(d.spareAxis, d.axis)
+	vals := refill(d.spareVals, d.vals)
 
 	for {
 		n, err := unix.Read(fd, buf)
@@ -488,6 +501,7 @@ func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
 			}
 		}
 	}
+	d.spareBtn, d.spareAxis, d.spareVals = d.btn, d.axis, d.vals
 	d.btn, d.axis, d.vals, d.have = btn, axis, vals, true
 	if debug {
 		sticks := make([]Stick, len(vals))
