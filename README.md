@@ -798,9 +798,6 @@ NextLetter = ], pad:righttrigger  ; any list
 
 Tags only match inside `( )` or `[ ]`, as whole words, so **Demo** never catches *Demolition Man*.
 
-> [!WARNING]
-> If you hide **Disc 2+** in the menu, you can't pick disc 2 from the menu when a game asks for it, unless your multi-disc games use `.m3u` playlists.
-
 ---
 
 ## Systems and groups
