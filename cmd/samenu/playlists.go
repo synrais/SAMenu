@@ -340,28 +340,38 @@ func perSystemGenres(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p 
 	for id := range withGenres {
 		ids = append(ids, id)
 	}
-	sort.Slice(ids, func(i, j int) bool { return strings.ToLower(nameOf(ids[i])) < strings.ToLower(nameOf(ids[j])) })
+	// Always under Arcade, Consoles, Handhelds, Computers and Other, A-Z in
+	// each, whatever the menu's sorting.
+	cats, byCat := categoryGroups(ids)
 	(&menuScreen{title: "Per system: " + p.Name, lines: func() []menuLine {
-		lines := make([]menuLine, len(ids))
-		for i, id := range ids {
-			id := id
-			picks := "-"
-			if g := p.Systems[id]; len(g) > 0 {
-				picks = strings.Join(g, ", ")
+		var lines []menuLine
+		for _, cat := range cats {
+			lines = append(lines, heading(categoryTitles[cat]))
+			for _, id := range byCat[cat] {
+				lines = append(lines, perSystemLine(stdscr, cfg, files, p, nameOf, save, id))
 			}
-			lines[i] = opens(fmt.Sprintf("%-22s %s", nameOf(id), picks), func() {
-				if picked, changed := tickGenres(stdscr, cfg, "Genres for "+nameOf(id), files, id, p.Systems[id]); changed {
-					if len(picked) == 0 {
-						delete(p.Systems, id)
-					} else {
-						p.Systems[id] = picked
-					}
-					save()
-				}
-			})
 		}
 		return lines
 	}}).run(stdscr)
+}
+
+// perSystemLine is one system on the Per system screen: its genre picks,
+// edited by choosing it.
+func perSystemLine(stdscr *gc.Window, cfg *config.Config, files []MenuFile, p *config.Playlist, nameOf func(string) string, save func(), id string) menuLine {
+	picks := "-"
+	if g := p.Systems[id]; len(g) > 0 {
+		picks = strings.Join(g, ", ")
+	}
+	return opens(fmt.Sprintf("  %-22s %s", nameOf(id), picks), func() {
+		if picked, changed := tickGenres(stdscr, cfg, "Genres for "+nameOf(id), files, id, p.Systems[id]); changed {
+			if len(picked) == 0 {
+				delete(p.Systems, id)
+			} else {
+				p.Systems[id] = picked
+			}
+			save()
+		}
+	})
 }
 
 // othersLine shows what happens to systems with no genres picked. With

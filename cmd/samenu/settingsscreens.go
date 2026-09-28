@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -90,7 +91,7 @@ func attractSettingsScreen(stdscr *gc.Window, cfg *config.Config, sysNames []str
 		},
 		changed: func(o *labelOption) {
 			if o == &systems {
-				tickSystems(stdscr, "Attract Mode Systems", ids, attractTicks(cfg, ids), func(on map[string]bool) {
+				tickSystemsByCategory(stdscr, "Attract Mode Systems", ids, attractTicks(cfg, ids), func(on map[string]bool) {
 					a.Include = nil
 					a.Exclude = unticked(ids, on)
 				})
@@ -233,27 +234,95 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) (added []games
 
 // -------- System tick list --------
 
-// tickSystems shows a tick list of systems. Changes are handed to save
-// when leaving, only if anything changed.
-// The systems are in groups, as the menu groups them (by manufacturer or
-// category; by category when the menu doesn't group), each with a heading
-// that turns the whole group on or off.
+// The options screens' system lists always look the same, whatever the
+// menu's own Display & Sorting settings: either as the menu looks out of
+// the box (tickSystems), or by category (tickSystemsByCategory,
+// categoryGroups).
+
+// defaultSortOptions is the systems list sorting as it comes out of the box:
+// by manufacturer A-Z, each by release date, Arcade Cores at the top.
+func defaultSortOptions() games.SortOptions {
+	return games.SortOptions{
+		Group:         "Manufacturer",
+		GroupOrder:    "A-Z",
+		CategoryOrder: strings.Split(categoryPresets[0], ","),
+		Subgroup:      "None",
+		SubgroupOrder: "A-Z",
+		Within:        "Release date",
+		ArcadeFirst:   true,
+	}
+}
+
+// defaultSystemLabel shows a system as the menu does out of the box:
+// "[Nintendo] NES".
+func defaultSystemLabel(name string) string {
+	maker, short := games.SystemLabelParts(name)
+	return "[" + maker + "] " + short
+}
+
+// tickSystems shows a tick list of systems as the menu looks out of the box:
+// under manufacturer headings, A-Z, each by release date, Arcade Cores at
+// the top, shown as "[Nintendo] NES". Changes are handed to save when
+// leaving, only if anything changed.
 func tickSystems(stdscr *gc.Window, title string, ids []string, on map[string]bool, save func(map[string]bool)) {
 	names := namesOf(ids)
-	labels := systemLabels(names, optionsWidth-14)
-	by := optGroup.value()
-	if by == "None" {
-		by = "Category"
-	}
-	groups := make([]string, len(ids))
+	idOf := map[string]string{}
 	for i, n := range names {
-		g := games.SystemGroup(n, by)
-		if t, ok := categoryTitles[g]; ok && by == "Category" {
-			g = t
-		}
-		groups[i] = g
+		idOf[n] = ids[i]
 	}
-	tickListWith(stdscr, title, ids, labels, groups, on, save, nil)
+	games.SortSystemNamesWith(names, defaultSortOptions())
+	sorted := make([]string, len(names))
+	labels := make([]string, len(names))
+	groups := make([]string, len(names))
+	for i, n := range names {
+		sorted[i], labels[i], groups[i] = idOf[n], defaultSystemLabel(n), games.SystemGroup(n, "Manufacturer")
+	}
+	tickListWith(stdscr, title, sorted, labels, groups, on, save, nil)
+}
+
+// tickSystemsByCategory shows a tick list of systems under Arcade,
+// Consoles, Handhelds, Computers and Other, A-Z in each (see
+// categoryGroups).
+func tickSystemsByCategory(stdscr *gc.Window, title string, ids []string, on map[string]bool, save func(map[string]bool)) {
+	var sorted, labels, groups []string
+	cats, byCat := categoryGroups(ids)
+	for _, cat := range cats {
+		for _, id := range byCat[cat] {
+			sorted = append(sorted, id)
+			labels = append(labels, games.DisplayName(id))
+			groups = append(groups, categoryTitles[cat])
+		}
+	}
+	tickListWith(stdscr, title, sorted, labels, groups, on, save, nil)
+}
+
+// categoryGroups sorts systems (IDs) into their categories, in the order
+// Arcade, Console, Handheld, Computer, Other (anything else goes in Other),
+// A-Z by name in each. It returns the categories that have any, in order.
+func categoryGroups(ids []string) ([]string, map[string][]string) {
+	order := []string{games.CategoryArcade, games.CategoryConsole, games.CategoryHandheld, games.CategoryComputer, games.CategoryOther}
+	byCat := map[string][]string{}
+	for _, id := range ids {
+		cat := games.SystemGroup(games.DisplayName(id), "Category")
+		switch cat {
+		case games.CategoryArcade, games.CategoryConsole, games.CategoryHandheld, games.CategoryComputer:
+		default:
+			cat = games.CategoryOther
+		}
+		byCat[cat] = append(byCat[cat], id)
+	}
+	var cats []string
+	for _, cat := range order {
+		list := byCat[cat]
+		if len(list) == 0 {
+			continue
+		}
+		sort.SliceStable(list, func(i, j int) bool {
+			return strings.ToLower(games.DisplayName(list[i])) < strings.ToLower(games.DisplayName(list[j]))
+		})
+		cats = append(cats, cat)
+	}
+	return cats, byCat
 }
 
 // tickList is a list of tick boxes: ids are what's ticked (keys of on),

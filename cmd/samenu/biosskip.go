@@ -109,32 +109,21 @@ func biosSkipScreen(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
 // Other (headings the highlight skips), A-Z in each, whatever the menu's
 // own sorting.
 func addBiosSystem(stdscr *gc.Window, cfg *config.Config, sysNames []string) {
-	byCategory := map[string][]string{}
+	var ids []string
 	for _, id := range systemIDs(sysNames) {
-		if _, has := cfg.AutoInput.Sequences[strings.ToLower(id)]; has || strings.EqualFold(id, "Arcade") {
-			continue
+		if _, has := cfg.AutoInput.Sequences[strings.ToLower(id)]; !has && !strings.EqualFold(id, "Arcade") {
+			ids = append(ids, id)
 		}
-		cat := games.SystemGroup(games.DisplayName(id), "Category")
-		if cat != games.CategoryConsole && cat != games.CategoryHandheld && cat != games.CategoryComputer {
-			cat = games.CategoryOther
-		}
-		byCategory[cat] = append(byCategory[cat], id)
 	}
-	if len(byCategory) == 0 {
+	if len(ids) == 0 {
 		message(stdscr, "Every system already has a sequence.")
 		return
 	}
 	var lines []menuLine
-	for _, cat := range []string{games.CategoryConsole, games.CategoryHandheld, games.CategoryComputer, games.CategoryOther} {
-		list := byCategory[cat]
-		if len(list) == 0 {
-			continue
-		}
-		sort.Slice(list, func(i, j int) bool {
-			return strings.ToLower(games.DisplayName(list[i])) < strings.ToLower(games.DisplayName(list[j]))
-		})
+	cats, byCat := categoryGroups(ids)
+	for _, cat := range cats {
 		lines = append(lines, heading(categoryTitles[cat]))
-		for _, id := range list {
+		for _, id := range byCat[cat] {
 			id := id
 			lines = append(lines, opens("  "+games.DisplayName(id), nil).leaves(func() bool {
 				biosSequenceEditor(stdscr, cfg, id, games.DisplayName(id))
