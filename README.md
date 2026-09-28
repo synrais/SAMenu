@@ -107,7 +107,7 @@ SAMenu works with a keyboard or a controller. MiSTer turns controller buttons in
 | **X** | Space | Options |
 | **L** / **R** | Page Up / Page Down | Page up / down |
 
-In a game list, **Y** (Tab) marks the highlighted game as a favourite, and in [Favourites] **X** (Space) removes one (see [History and favourites](#history-and-favourites)). Every list wraps around: Up at the top goes to the bottom, and Down at the bottom goes back to the top. **L** and **R** do too, a page at a time: on the last page R goes to the bottom, and again to the top (on a list shorter than a page, straight to the top or bottom). They skip **[Pick Random Game]**, so it's only ever chosen on purpose.
+In a game list, **Y** (Tab) marks the highlighted game as a favourite, and in [Favourites] **X** (Space) removes one (see [History and favourites](#history-and-favourites)). Every list wraps around with Up and Down: Up at the top goes to the bottom, and Down at the bottom goes back to the first game (skipping **[Pick Random Game]**, so it's only ever chosen on purpose). **L** and **R** move a page at a time and stop at the ends: on the last page R goes to the last line, on the first page L goes to the first game (on a list shorter than a page, straight to the top or bottom).
 
 **Menu Layout** can swap A and B, **Japanese** style: B confirms, A goes back.
 

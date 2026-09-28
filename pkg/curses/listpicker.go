@@ -131,8 +131,9 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 		}
 	}
 	// Page jumps (the shoulder buttons, PgUp/PgDn). They never land on the
-	// rows above first (e.g. [Pick Random Game]), and at either end go
-	// round to the other, as Up and Down do.
+	// rows above first (e.g. [Pick Random Game]), and stop at either end:
+	// only Up and Down go round. first is also where Down goes from the last
+	// line.
 	first := 0
 	if opts.PageSkip < len(items) {
 		first = opts.PageSkip
@@ -148,9 +149,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 	}
 	pageUp := func() {
 		switch {
-		case selectedItem <= first: // at the top: round to the bottom
-			land(len(items)-1, -1)
-		case viewStart-pgAmount <= 0:
+		case viewStart-pgAmount <= 0: // the first page: its first line
 			viewStart = 0
 			land(first, 1)
 		default:
@@ -160,10 +159,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 	}
 	pageDown := func() {
 		switch {
-		case selectedItem >= len(items)-1: // at the bottom: round to the top
-			viewStart = 0
-			land(first, 1)
-		case viewStart+viewHeight >= len(items): // the last page (or a short list)
+		case viewStart+viewHeight >= len(items): // the last page (or a short list): its last line
 			land(len(items)-1, -1)
 		default:
 			viewStart += pgAmount
@@ -358,7 +354,10 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 					selectedItem++
 					settle(1)
 				} else {
-					selectedItem = 0 // past the bottom: back to the top
+					// Past the bottom: back to the first real line (not
+					// [Pick Random Game]), with the top of the list shown.
+					viewStart = 0
+					selectedItem = first
 					settle(1)
 				}
 				showSelected()
