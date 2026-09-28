@@ -22,6 +22,8 @@ and let the MiSTer show itself off with an attract mode that plays random games,
   - [Controls](#controls)
   - [Systems and folders](#systems-and-folders)
   - [Search](#search)
+  - [History and favourites](#history-and-favourites)
+  - [Choosing a core](#choosing-a-core)
   - [The Options menu](#the-options-menu)
 - [Genres and playlists](#genres-and-playlists)
   - [Genres](#genres)
@@ -30,6 +32,7 @@ and let the MiSTer show itself off with an attract mode that plays random games,
 - [Attract mode](#attract-mode)
   - [How games are picked](#how-games-are-picked)
   - [Attract mode controls](#attract-mode-controls)
+  - [Input test](#input-test)
   - [Game lists](#game-lists)
   - [Static screen detector](#static-screen-detector)
 - [BIOS skip](#bios-skip)
@@ -54,7 +57,10 @@ and let the MiSTer show itself off with an attract mode that plays random games,
 - 💾 **Easy on the SD card:** the busy, repetitive work happens in RAM, and memory use is capped (see [Easy on the SD card](#easy-on-the-sd-card)).
 - 📺 **Attract mode** plays random games one after another, with smart picking (balanced across systems, no repeats, one version per title), a history to go back and forward through, and full control from a controller, keyboard, mouse or SSH.
 - 🎲 **[Pick Random Game]** at the top of every list, and **virtual [Games A-Z] folders** for big genre-sorted sets.
-- 🗂️ **Genres** from your genre folders: browse every game by genre across all systems, and build **attract playlists** like "Fighters Night", including **custom genres** made from any word ("Mario").
+- ⭐ **[Favourites]** you mark with one button, and **[History]** of the games you've played (and what attract mode played), newest first with the day.
+- 🗂️ **[Genre Collection]** from your genre folders: browse every game by genre across all systems, and build **attract playlists** like "Fighters Night", including **custom genres** made from any word ("Mario").
+- 🎛️ **Remappable controls** for the menu and attract mode, including controller buttons MiSTer doesn't pass to scripts (Start, Select, L2…), and an **Input test** screen that shows what every controller sends.
+- 🔀 **Choose a different core** for any system from the core files on your SD card or USB drive.
 - 🖥️ **A static screen detector** spots games stuck on a black or frozen screen, skips them, and learns from it.
 - 🕹️ **BIOS skip** presses buttons on a virtual pad after a game loads, to get past BIOS screens.
 - 🎵 **Background music**, and 🎬 **a video player**, including videos between attract games and streaming from a PC.
@@ -99,7 +105,11 @@ SAMenu works with a keyboard or a controller. MiSTer turns controller buttons in
 | **X** | Space | Options |
 | **L** / **R** | Page Up / Page Down | Page up / down |
 
-**Menu Layout** (Options → Controls) can swap A and B, **Japanese** style: B confirms, A goes back.
+In a game list, **Y** (Tab) marks the highlighted game as a favourite, and in [Favourites] **X** (Space) removes one (see [History and favourites](#history-and-favourites)). Every list wraps around: Up at the top goes to the bottom, and Down at the bottom goes back to the top.
+
+**Menu Layout** can swap A and B, **Japanese** style: B confirms, A goes back.
+
+All of these can be remapped in **Options → Controls → Games Menu**, each action for the place it applies: Search and Options on the systems list, Favourite in game lists, Remove in [Favourites]. So one button can do different things in different places. Choose an action and press the key or button for it (a bound one removes it). Controller buttons MiSTer doesn't pass on as keys (Start, Select, L2, R2…) work too: SAMenu reads those itself.
 
 ### Systems and folders
 
@@ -107,11 +117,12 @@ The first screen lists your systems. How they're grouped and sorted is up to you
 
 Open a system to see its games and folders. Along the way you'll find:
 
-- **`[Pick Random Game]`** at the top of every list. It launches a random game from everything at that level and below, picked the same smart way as attract mode. (Options → Display & Sorting → Pick Random Game.)
+- **`[Pick Random Game]`** at the top of every list. It launches a random game from everything at that level and below, picked the same smart way as attract mode. (Options → Display & Sorting → [Pick Random Game].)
 - **`[Games A-Z]`** at the top of the systems you choose. It lists every game from all of that system's folders once, A-Z, which is perfect for a PlayStation set sorted into genres, without keeping a second copy. (Options → Display & Sorting → Virtual A-Z Folders.)
 - **Disc sets**, which can be grouped into one folder per game (Options → Display & Sorting → Game list sorting).
 - **Hide games tagged…**, which leaves betas, prototypes, hacks, bad dumps and so on out of the lists entirely (see [Name tags](#name-tags)).
-- **`[Genres]`** on the systems list: every game by genre, across all systems (see [Genres](#genres)).
+- **`[Favourites]`** and **`[History]`** on the systems list (see [History and favourites](#history-and-favourites)).
+- **`[Genre Collection]`** on the systems list: every game by genre, across all systems (see [Genres](#genres)).
 
 With **Remember position** on (in Menu list options), SAMenu opens where you left off.
 
@@ -139,16 +150,41 @@ Results always read **`[System] Title.ext`**, with the systems A-Z and then the 
 - `SAMenu.sh -search` opens the search screen **on the TV** (for remotes like Zaparoo).
 - `ssh -t root@<mister-ip> "/media/fat/Scripts/SAMenu.sh -search -here"` opens it **in your SSH window** instead. The games you pick still load on the MiSTer. The whole menu works that way too: `SAMenu.sh` on its own, or `-menu -here`.
 
+### History and favourites
+
+**`[History]`** on the systems list lists the games you launch from SAMenu, newest first, with the day each was played:
+
+```
+[History]
+  Today      [SNES] Street Fighter II Turbo
+  Yesterday  [Playstation] Tekken 3
+  26 Sep     [NES] Duck Tales
+```
+
+- It records games launched from any folder, search, [Pick Random Game], [Genre Collection], [Favourites] and [History] itself, but not attract mode's. It's kept on the SD card, so it survives a restart.
+- If attract mode has run since the MiSTer started, [History] has two folders: **Attract** (what attract mode played, newest first) and **Games Menu** (yours). Otherwise it goes straight into yours.
+- **Options → Display & Sorting → [History]:** show it or not, **Played again: to the top** (on: a replayed game moves to the top; off: it's listed again), how many to **Keep** (25 to 250), where each game's system is shown, and **Clear history now**.
+
+**Favourites:** in any game list, **Y** (the **Fav** button) marks the highlighted game with a `* ` in front of its name, and pressing it again unmarks it. The mark doesn't change the order. **`[Favourites]`** on the systems list lists them all by title, and **X** (**Remove**) takes one off. Attract mode can add the game on screen too, with its **Favourite** action.
+
+- **Options → Display & Sorting → [Favourites]:** switch favourites on or off (off hides the button, the marks and the folder), and where each game's system is shown.
+
+### Choosing a core
+
+**Options → Game Database → Cores** picks which core each system uses (Arcade isn't listed: its MRA files name their own cores). Choose a system, and browse the core files on every drive, like the games menu: the `_` folders at the root of the SD card and USB drives (except `_Arcade`) and their `_` subfolders, at any depth, merged across drives, with each file tagged by its drive, like `SNES_20260905.rbf (USB0)`. **Default** puts the system's own core back, and the core in use is marked `*`.
+
+The exact file is saved, so that build is the one that loads. It's stored as a `set_core` line in `[Systems]`, which you can also write by hand. For one launch only, use `-launch <file> -core <core>`, which wins over `set_core`.
+
 ### The Options menu
 
 Press **X** (Space) on the systems screen.
 
 | Section | What's in it |
 |:--|:--|
-| **Game Database** | Rebuild the database, and choose which systems it includes |
+| **Game Database** | Rebuild the database (it asks first), choose which systems it includes, and which core each system uses |
 | **Attract Mode** | Start attract mode, its settings, attract playlists, and the detector and list settings |
-| **Display & Sorting** | Menu list options (labels, text size, remember position), menu list sorting, game list sorting (including hidden tags), Virtual A-Z Folders, Pick Random Game and [Genres] |
-| **Controls** | Menu Layout, the input switches, and attract mode's controls |
+| **Display & Sorting** | Menu list options (labels, text size, remember position), menu list sorting, game list sorting (including hidden tags), Virtual A-Z Folders, [Pick Random Game], [Genre Collection], [Favourites] and [History] |
+| **Controls** | **Games Menu** (Menu Layout and the menu's mapping), **Attract Mode** (which inputs it watches, sticks, its mapping, and what other buttons do), **BIOS Skip** (when it runs, and each system's sequence) and the **Input test** |
 | **Music Player** | Play, stop and next, the playback order and the playlist |
 | **Video Player** | Browse and play videos, the playlist settings, videos in attract mode, and the sync options |
 | **Startup** | What starts when the MiSTer boots |
@@ -163,8 +199,8 @@ Changes are saved to `SAMenu.ini` as you make them.
 
 A game's genres come from **the folders it's in**, worked out when the games database is built. `SNES/Genres/Fighting/…` makes a game **Fighting**, and many spellings are recognised (`_Fighter`, `[Sports]`, `Shoot 'em Ups`, `Puzzle - Logic` and so on). A folder only counts when its whole name is a genre, so a folder named after a game, like *Street Fighter II*, doesn't. Sub-genres count as their genre too: **Sports/Golf** is also **Sports**.
 
-- **Browse by genre:** `[Genres]` on the systems list shows every game by genre, across all systems. Each game's system can be shown before or after its name, and the games can be ordered by name or by system (Options → Display & Sorting → [Genres]...).
-- **Leave systems out of [Genres]:** in the same settings, so a system you don't want there never shows up in it (it still appears everywhere else).
+- **Browse by genre:** `[Genre Collection]` on the systems list shows every game by genre, across all systems. Each game's system can be shown before or after its name, and the games can be ordered by name or by system (Options → Display & Sorting → [Genre Collection]).
+- **Leave systems out of [Genre Collection]:** in the same settings, so a system you don't want there never shows up in it (it still appears everywhere else).
 - **Check what was found:** `SAMenu.sh -genres` prints the genres in your database, with counts per system.
 - **Your own folder names:** add them in `SAMenu.ini`, under `[Genres]` for folders and `[Genres.Files]` for game names, then rebuild the database:
 
@@ -236,7 +272,7 @@ Then fine-tune it:
 
 ### Attract mode controls
 
-What each input does is set in **Options → Controls**, or in the `[InputDetector.*]` sections of `SAMenu.ini`. The defaults are:
+What each input does is set in **Options → Controls → Attract Mode → Mapping**, or in the `[InputDetector.*]` sections of `SAMenu.ini`. The defaults are:
 
 | Action | Controller | Keyboard | Mouse |
 |:--|:--|:--|:--|
@@ -248,12 +284,32 @@ What each input does is set in **Options → Controls**, or in the `[InputDetect
 | **stay**: stay on this game (again to carry on) | | Space | |
 | **search**: type a search whose results play first (twice quickly opens SAMenu) | | `` ` `` | |
 | **menu**: close the game and open SAMenu on the TV | | | |
+| **favourite**: add the game on screen to your favourites (again to take it off) | | | |
+| **mute**: sound off / on | | | |
+| **screenshot**: take a screenshot (in MiSTer's usual screenshots folder) | | | |
 
-Any other button does what **Other buttons** (`OtherInput`) says: Ignore, **Play** *(default)* or Stop.
+Favourite, mute and screenshot act without leaving the game.
 
-Run **`SAMenu.sh -inputs`** over SSH to see the name of any key or button you press, for example `joystick (8BitDo Pro 2): dpleft`.
+Any other button does what **Other buttons** (`OtherInput`, in Options → Controls → Attract Mode) says: Ignore, **Play** *(default)* or Stop.
 
-Attract mode can also **mute** the MiSTer while it runs (`Mute = true`). The sound comes back when it stops or when you choose a game.
+**Which inputs attract mode watches** is set in the same place: the mouse, keyboard and controllers each on or off, and **analog sticks**:
+
+- **Sticks** on or off. Buttons and the d-pad always count.
+- **Stick hold** (50 to 250 ms, 75 by default): how long a stick must stay pushed before it counts, so a glitch, like an empty port on a multi-port adapter jumping for an instant, doesn't stop attract mode.
+
+Attract mode can also **mute** the MiSTer while it runs (`Mute = true`). The sound comes back when it stops or when you choose a game. If you'd muted the MiSTer yourself, it leaves your mute alone, and if the MiSTer restarts while attract mode had it muted, the sound is put back at the next boot.
+
+### Input test
+
+**Options → Controls → Input test** shows, live, what attract mode's input detectors see:
+
+- **Controllers:** every keyboard, mouse and controller being watched, with how each controller's buttons were named.
+- **Sticks:** bars for the last controller used, with `|` marking where a push starts to count, so drift and dead zones are easy to see.
+- **Inputs:** every press, newest first, with the time, the device's port, the input's name (as used in `SAMenu.ini`) and what attract mode would do with it. Inputs the stick settings filtered out are shown dimmed, with why (`ignored: too short`).
+
+Hold **Cross / B / Enter** or **Circle / A / Esc** for 2 seconds to leave, then let go. Tapping them just shows them, so any button can be tried.
+
+Over SSH, **`SAMenu.sh -inputs`** prints the same names, for example `joystick (8BitDo Pro 2): dpleft`.
 
 ### Game lists
 
@@ -300,7 +356,14 @@ Sequence = 10, a
 | `a b x y l r select start home up down left right` | Virtual pad buttons (MiSTer's default map) |
 | `key:enter`, `key:space`, `key:f1`… | Keyboard keys, for cores that read a keyboard |
 
-BIOS skip can be switched on or off separately for attract mode and for games you launch (`[BiosSkip] Attract` and `Menu`). Test a sequence on a running game with `SAMenu.sh -press start`.
+**Options → Controls → BIOS Skip** sets it all up from the menu:
+
+- **Used for:** Off, Attract (games attract mode launches), Menu (games you launch) or Both (`[BiosSkip] Attract` and `Menu`).
+- **Each system with a sequence**, and **Add a system...**. Choose one to edit its steps: **Add a press** (press the button or key on your controller or keyboard) or **Add a wait**, and choose a step to remove it.
+
+A press is saved by the button's **position**, since the virtual pad's names are Nintendo style (`a` right, `b` bottom, `x` top, `y` left). So pressing your bottom button (Cross on a PlayStation pad) saves `b`, and each step shows it, like `Press b (bottom)`. A button with no virtual pad name gives you a list to pick from.
+
+Test a sequence on a running game with `SAMenu.sh -press start`.
 
 ---
 
@@ -406,6 +469,8 @@ Everything can be run over SSH or from any script:
 | `-menu -here`, `-search -here` | Open it in this terminal instead, e.g. over SSH with `ssh -t` |
 | **Games** | |
 | `-launch <file>` | Launch a game, for example `-launch /media/fat/games/NES/Tetris.nes` |
+| `-launch <file> -system Atari2600` | …as this system (ID or name), instead of guessing from the file |
+| `-launch <file> -core _Unstable/NES` | …with another core, loading the file the usual way (add `-system` if it can't be guessed) |
 | `-random` | Launch a random game |
 | `-random Nintendo` | …from these systems or groups |
 | `-list` | Print every game in the database |
@@ -420,7 +485,7 @@ Everything can be run over SSH or from any script:
 | `-press start` | Press buttons on the virtual pad |
 | `-watch` | Show the static detector's live status |
 
-`-launch`, `-random` and `-video play` end a running attract mode first. The other options never disturb a running menu or attract mode.
+`-launch`, `-random` and `-video play` end a running attract mode first. The other options never disturb a running menu or attract mode. Options that only work with another (`-bg`, `-playlist`, `-here`, `-system`, `-core`) say so if used on their own.
 
 That makes SAMenu easy to drive from **Zaparoo**, **Home Assistant** or your own scripts.
 
@@ -439,7 +504,7 @@ Settings are case-insensitive, and lists are comma separated. Anywhere a system 
 |:--|:--|:--|
 | `games_folder` | `/media/usb0/MoreGames` | An extra place laid out like a `games` folder, with a folder per system inside. One line each |
 | `system_folder` | `SNES:/media/usb0/SNES Hacks` | An extra folder for one system, used as it is. One line each |
-| `set_core` | `SNES:_Console/SNES_alt` | Use a different core for a system |
+| `set_core` | `SNES:_Unstable/SNES_20260905` | Use a different core for a system (easiest from Options → Game Database → Cores). A full path is tidied, and a core on USB is `../usb0/_Cores/X`. With the build date, that exact build loads; without it, the newest one with that name in the folder |
 
 </details>
 
@@ -559,9 +624,9 @@ Override any of these per system or group, for example `[StaticDetector.PSX]`. A
 <details>
 <summary><b>[InputDetector]</b> and <b>[InputDetector.Keyboard / Mouse / Joystick]</b>: attract mode controls</summary>
 
-`[InputDetector]` switches each kind of input on or off: `Mouse`, `Keyboard` and `Joystick`.
+`[InputDetector]` switches each kind of input on or off: `Mouse`, `Keyboard` and `Joystick`, plus the analog sticks: `Sticks` (true/false) and `StickHoldMs` (how long a stick must stay pushed to count, 75 by default).
 
-The other sections take `input = action`, where the actions are `next`, `back`, `play`, `stop`, `blacklist`, `stay`, `menu` and `search`:
+The other sections take `input = action`, where the actions are `next`, `back`, `play`, `stop`, `blacklist`, `stay`, `menu`, `search`, `favourite`, `mute` and `screenshot`:
 
 ```ini
 [InputDetector.Joystick]
@@ -667,12 +732,32 @@ After editing these by hand, save once from Options → Startup so the startup b
 | `RandomEntry` | `true` | Show `[Pick Random Game]` |
 | `HideTags` | *(empty)* | [Name tags](#name-tags) to hide from the lists |
 | `SearchHidden` | `true` | Hide them from search too |
-| `GenresEntry` | `true` | Show `[Genres]` on the systems list |
-| `GenresSystem` | `Before` | In `[Genres]`, each game's system: Before, After or Off |
-| `GenresOrder` | `Game name` | In `[Genres]`, the order: Game name, or System |
-| `GenresExclude` | *(empty)* | Systems or groups left out of `[Genres]` |
+| `GenresEntry` | `true` | Show `[Genre Collection]` on the systems list |
+| `GenresSystem` | `Before` | In `[Genre Collection]`, each game's system: Before, After or Off |
+| `GenresOrder` | `Game name` | In `[Genre Collection]`, the order: Game name, or System |
+| `GenresExclude` | *(empty)* | Systems or groups left out of `[Genre Collection]` |
 
-**[Controls.Menu]** has `Layout = Western` (A confirms) or `Japanese` (B confirms).
+**History and favourites**
+
+| Key | Default | Does |
+|:--|:--|:--|
+| `HistoryEntry` | `true` | Keep and show `[History]` |
+| `HistoryMoveToTop` | `true` | A game played again moves to the top, instead of being listed again |
+| `HistoryKeep` | `100` | How many games `[History]` keeps |
+| `HistorySystem` | `Before` | Each game's system: Before, After or Off |
+| `Favourites` | `true` | The Fav button, the `* ` marks and `[Favourites]` |
+| `FavouritesSystem` | `Before` | In `[Favourites]`, each game's system: Before, After or Off |
+
+**[Controls.Menu]** has `Layout = Western` (A confirms) or `Japanese` (B confirms), and the menu's actions, each a list of inputs: keys (`tab`, `space`, a letter…) or `pad:<name>` for a controller button MiSTer doesn't pass on as a key (`pad:start`, `pad:back`…):
+
+```ini
+[Controls.Menu]
+Layout    = Western
+Search    = tab              ; systems list
+Options   = space            ; systems list
+Favourite = tab              ; game lists
+Remove    = space, pad:back  ; [Favourites]
+```
 
 </details>
 
@@ -725,10 +810,14 @@ For example, `Include = Nintendo, Sega` with `Exclude = Gameboy2P` plays every N
 | `/media/fat/Scripts/.MiSTer_SAMenu/games.db` | The games database |
 | `/media/fat/Scripts/.MiSTer_SAMenu/Lists/` | The Blacklist, Staticlist and Whitelist |
 | `/media/fat/Scripts/.MiSTer_SAMenu/position.txt` | Where you left off (Remember position) |
+| `/media/fat/Scripts/.MiSTer_SAMenu/history.json` | `[History]` |
+| `/media/fat/Scripts/.MiSTer_SAMenu/favourites.json` | `[Favourites]` |
+| `/media/fat/Scripts/.MiSTer_SAMenu/attract_muted` | Only while attract mode has the sound muted, so it can be undone after a restart |
 | `/media/fat/music/` | Music (folders are playlists) |
 | `/media/fat/video/` | Videos (folders are playlists) |
 | `/tmp/SAMenu_attract.log` | Attract mode's log, when started with `-bg` |
 | `/tmp/SAMenu_attract.status` | What attract mode is playing |
+| `/tmp/SAMenu_attract_history.json` | What attract mode has played this session (`[History]` > Attract) |
 | `/tmp/SAMenu_detector` | The static detector's live status |
 
 To use a different settings file, set the environment variable `SAMENU_CONFIG`.
@@ -748,6 +837,8 @@ SD cards wear out with repeated writing, so SAMenu keeps its busy work in **RAM*
 - **`games.db`**, when you rebuild the database. It's written once, to a temporary file that's swapped in when complete.
 - **The lists**, when the static detector or the blacklist action adds a game (one short line).
 - **`position.txt`**, when you launch a game or leave the menu, with Remember position on.
+- **`history.json`**, when you launch a game from SAMenu, and **`favourites.json`**, when you mark or remove a favourite.
+- **`attract_muted`**, a tiny marker, only when attract mode mutes the sound (removed when it unmutes).
 
 **Capped:** attract mode, which can run for hours, limits its memory to **128 MB** (of the MiSTer's roughly 500 MB for Linux), keeps a history of the last **100** games, and starts a **fresh log** each session.
 
