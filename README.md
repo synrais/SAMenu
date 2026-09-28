@@ -317,7 +317,7 @@ Attract mode can also **mute** the MiSTer while it runs (`Mute = true`). The sou
 - **Sticks:** bars for the last controller used, with `|` marking where a push starts to count, so drift and dead zones are easy to see.
 - **Inputs:** every press, newest first, with the time, the device's port, the input's name (as used in `SAMenu.ini`) and what attract mode would do with it. Inputs the stick settings filtered out are shown dimmed, with why (`ignored: too short`).
 
-Hold **Cross / B / Enter** or **Circle / A / Esc** for 2 seconds to leave, then let go. Tapping them just shows them, so any button can be tried.
+Hold a controller's **Back** (Select) or a keyboard's **Esc** for 2 seconds to leave, then let go. Tapping it just shows it, and every other button can be tried freely. Over SSH, holding Esc in the terminal leaves too.
 
 Over SSH, **`SAMenu.sh -inputs`** prints the same names, for example `joystick (8BitDo Pro 2): dpleft`.
 

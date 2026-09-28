@@ -10,6 +10,7 @@ import (
 
 	"github.com/synrais/SAMenu/pkg/config"
 	"github.com/synrais/SAMenu/pkg/input"
+	"github.com/synrais/SAMenu/pkg/mister"
 )
 
 // -------------------------
@@ -21,12 +22,12 @@ import (
 // watched, bars showing the last-used controller's sticks (with the line a
 // stick must pass to count), and every input as it happens, with the
 // attract action it would trigger, or dimmed with why it didn't count (the
-// stick hold, Sticks = false). Holding Enter or Esc (Cross/B or Circle/A) for
-// two seconds leaves; tapping them just shows them, so any button can be
-// tried.
+// stick hold, Sticks = false). Holding a controller's Back (Select) or a
+// keyboard's Esc for two seconds leaves; tapping it just shows it, so any
+// button can be tried.
 
 const (
-	exitHold    = 2 * time.Second // hold Enter or Esc this long to leave
+	exitHold    = 2 * time.Second // hold Back or Esc this long to leave
 	releaseWait = 5 * time.Second // then wait at most this long for it to be let go
 )
 
@@ -62,18 +63,15 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 	var lines []testLine
 	lastPad := "" // the controller whose sticks are shown
 
-	// Leaving: a held Enter or Esc. The detectors say when a button goes
-	// down and up; the menu's own key (MiSTer turns the button into Enter
-	// or Esc) says which button that is.
-	type press struct {
-		key string
-		at  time.Time
-	}
-	var recent []press // detector presses of the last moment
-	var lastExitKey time.Time
+	// Leaving: holding a controller's Back (Select) or a keyboard's Esc for
+	// exitHold, as the detectors see them go down and up. Every other button
+	// can be tried freely. Over SSH the keyboard isn't one the detectors
+	// see, so there an Esc that keeps repeating for as long counts too (on
+	// the TV it doesn't: MiSTer turns a controller's B into Esc).
 	holdKey := "" // the button being held to leave
 	var holdStart time.Time
-	var repeatStart, repeatLast time.Time // a key repeating by itself, as a fallback
+	var repeatStart, repeatLast time.Time // Esc repeating in an SSH terminal
+	sshEsc := !mister.OnConsole()
 	// After the hold: wait for the button to be let go (or 5 seconds), so
 	// its key repeats don't carry on into the next screen.
 	releasing := false
@@ -82,7 +80,8 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 	for {
 		time.Sleep(50 * time.Millisecond)
 		now := time.Now()
-		// Menu keys (at most a screenful's worth each frame).
+		// Menu keys (at most a screenful's worth each frame): only read, so
+		// they don't pile up, apart from an SSH terminal's Esc.
 		for n := 0; n < 64; n++ {
 			k := stdscr.GetChar()
 			if k == 0 || k == gc.KEY_RESIZE {
@@ -97,20 +96,12 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 					}
 					continue
 				}
-			}
-			if k == 10 || k == 13 || k == gc.KEY_ENTER || k == 27 {
-				// The detector press this came from, if seen just now.
-				for i := len(recent) - 1; i >= 0; i-- {
-					if now.Sub(recent[i].at) < 300*time.Millisecond && holdKey == "" && !releasing {
-						holdKey, holdStart = recent[i].key, recent[i].at
-						break
+				if sshEsc {
+					if now.Sub(repeatLast) > 300*time.Millisecond {
+						repeatStart = now
 					}
+					repeatLast = now
 				}
-				lastExitKey = now
-				if now.Sub(repeatLast) > 300*time.Millisecond {
-					repeatStart = now
-				}
-				repeatLast = now
 			}
 		}
 		// Detector events.
@@ -131,22 +122,10 @@ func inputTestScreen(stdscr *gc.Window, cfg *config.Config) {
 				if ev.Kind == "joystick" && ev.Path != "" {
 					lastPad = ev.Path
 				}
-				// Only buttons and keys can be the one held to leave: never a
-				// stick or d-pad (they don't report being let go).
-				if ev.Ignored == "" && !ev.Axis {
-					if releasing {
-						// waiting for the release: no new hold
-					} else if ev.Kind == "keyboard" && (ev.Name == "enter" || ev.Name == "esc" || ev.Name == "kpenter") {
-						holdKey, holdStart = key, now
-					} else {
-						recent = append(recent, press{key, now})
-						if len(recent) > 8 {
-							recent = recent[1:]
-						}
-						if now.Sub(lastExitKey) < 300*time.Millisecond && holdKey == "" && !releasing {
-							holdKey, holdStart = key, now
-						}
-					}
+				// A controller's Back or a keyboard's Esc starts the hold.
+				exitButton := (ev.Kind == "joystick" && ev.Name == "back") || (ev.Kind == "keyboard" && ev.Name == "esc")
+				if exitButton && ev.Ignored == "" && holdKey == "" && !releasing {
+					holdKey, holdStart = key, now
 				}
 				lines = append([]testLine{describeInput(cfg, ev, now)}, lines...)
 				if len(lines) > 200 {
@@ -318,7 +297,7 @@ func drawInputTest(stdscr *gc.Window, lines []testLine, pad string, held time.Du
 		put(layoutInput(l, cols-1, time.Since(opened)), attr)
 	}
 
-	hint := "Hold Cross/B/Enter or Circle/A/Esc for 2 seconds to exit"
+	hint := "Hold Back/ESC for 2 seconds to exit"
 	if releasing {
 		secs := int((left + time.Second - 1) / time.Second)
 		hint = fmt.Sprintf("Release to exit, else exiting in %d seconds...", secs)
