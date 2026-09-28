@@ -221,7 +221,9 @@ func databaseSystemsScreen(stdscr *gc.Window, cfg *config.Config) bool {
 		return false
 	}
 
-	return confirm(stdscr, "Rebuild the games database now?", "Rebuild now", "Later")
+	// Starts on Rebuild now: the systems were just changed to rebuild them.
+	c, ok := optionsList(stdscr, "Rebuild the games database now?", []string{"Rebuild now", "Later"}, 0)
+	return ok && c == 0
 }
 
 // -------- System tick list --------
