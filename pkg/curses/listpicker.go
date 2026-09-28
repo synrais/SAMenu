@@ -196,7 +196,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 	win.Timeout(100)
 	var ch gc.Key
 
-	for ch != gc.KEY_ESC {
+	for {
 		// A long highlighted line bounces from when it was highlighted.
 		if selectedItem != currentSelection {
 			currentSelection = selectedItem
@@ -323,13 +323,16 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 		// Wait for a key, or the 100ms tick (for the scrolling title).
 		ch = readKey(win)
 
-		// Esc (B) and Backspace always press Back, where there is one.
+		// Esc (B) and Backspace always press Back, where there is one. Where
+		// there isn't (the main menu, with Exit), they do nothing: the list
+		// used to close and be drawn again, which flashed the screen.
 		if ch == gc.KEY_ESC || ch == gc.KEY_BACKSPACE || ch == 127 || ch == 8 {
 			for i, b := range opts.Buttons {
 				if strings.EqualFold(b, "Back") {
 					return i, selectedItem, nil
 				}
 			}
+			continue
 		}
 
 		if label, ok := opts.Shortcuts[ch]; ok {
@@ -404,8 +407,6 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			}
 		}
 	}
-
-	return -1, -1, nil
 }
 
 // heldRepeats counts a movement key and its repeats already waiting,
