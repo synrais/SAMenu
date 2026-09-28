@@ -481,7 +481,7 @@ Everything can be run over SSH or from any script:
 | `-genres` | Print the genres found in the database, with counts per system |
 | **Music and video** | |
 | `-music start \| stop \| next \| previous \| status` | The music player |
-| `-video play [file \| folder \| -]` | The video player (`-` plays a video piped in) |
+| `-video play [file \| folder \| playlist \| -]` | The video player (`-` plays a video piped in) |
 | `-video next \| stop \| status` | Control the video player |
 | **Testing** | |
 | `-inputs` | Print every key, click and controller press |

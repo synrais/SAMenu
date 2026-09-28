@@ -567,6 +567,7 @@ func main() {
 	// does everything we start.
 	mister.UseAllCores()
 
+	// -h shows helpText (help.go): add any new option there too.
 	listPtr := flag.Bool("list", false, "Print every game in the database, one per line")
 	genresPtr := flag.Bool("genres", false, "Print the genres found in the games database, with counts per system")
 	printPtr := flag.Bool("print", false, "Same as -list")
@@ -595,7 +596,7 @@ func main() {
 	videodPtr := flag.Bool("videod", false, "Internal: the video player process")
 	bootPtr := flag.String("boot", "", "Internal: run at MiSTer startup (menu or attract)")
 	idleWatchPtr := flag.Bool("idlewatch", false, "Internal: the idle watcher (starts attract mode when idle)")
-	attractPtr := flag.Bool("attract", false, "Start attract mode straight away (no menu screens)")
+	attractPtr := flag.Bool("attract", false, "Start attract mode straight away (no menu screens), optionally only some systems or groups, e.g. -attract SNES,Console")
 	watchPtr := flag.Bool("watch", false, "Show the static detector's live status (leaves a running menu or attract mode alone)")
 	inputsPtr := flag.Bool("inputs", false, "Print every key, mouse and controller press, to test the input detectors (leaves a running menu or attract mode alone)")
 	pressPtr := flag.Bool("press", false, "Press buttons on SAMenu's virtual pad or keyboard, e.g. -press start (leaves a running menu or attract mode alone)")
