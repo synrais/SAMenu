@@ -200,6 +200,10 @@ func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title s
 				}
 			}
 		}
+		pageSkip := 0
+		if len(entries) > 0 && entries[0].random {
+			pageSkip = 1
+		}
 		headers := map[int]bool{}
 		initial := 0
 		for i, e := range entries {
@@ -236,6 +240,7 @@ func systemsScreen(cfg *config.Config, stdscr *gc.Window, st *menuState, title s
 				Height:        listHeight,
 				InitialIndex:  initial,
 				Headers:       headers,
+				PageSkip:      pageSkip, // the shoulders never land on [Pick Random Game]
 				DynamicActionLabel: func(i int) string {
 					if i >= 0 && i < len(entries) && entries[i].random {
 						return "Pick"

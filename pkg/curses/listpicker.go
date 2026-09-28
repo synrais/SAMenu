@@ -31,6 +31,9 @@ type ListPickerOpts struct {
 	// Headers are item indexes shown as headings: drawn, but never
 	// highlighted or chosen. The highlight skips over them.
 	Headers map[int]bool
+	// PageSkip is how many rows at the top the page jumps (PgUp/PgDn, the
+	// shoulder buttons) never land on, e.g. 1 for [Pick Random Game].
+	PageSkip int
 	// Top is the window's top row; 0 (the default) centres it.
 	Top int
 	// ScrollKey names this list for remembering its scroll position
@@ -101,39 +104,6 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (button 
 	scrollOffset := 0
 	lastScroll := time.Now()
 
-	pageUp := func() {
-		if viewStart == 0 {
-			selectedItem = 0
-		} else if (viewStart - pgAmount) < 0 {
-			viewStart = 0
-			selectedItem = 0
-		} else {
-			viewStart -= pgAmount
-			selectedItem = viewStart
-		}
-		if selectedItem >= len(items) {
-			selectedItem = len(items) - 1
-		}
-	}
-
-	pageDown := func() {
-		if len(items) <= viewHeight {
-			return
-		}
-		if viewStart+viewHeight >= len(items) {
-			selectedItem = len(items) - 1
-		} else {
-			viewStart += pgAmount
-			if viewStart+viewHeight > len(items) {
-				viewStart = len(items) - viewHeight
-			}
-			selectedItem = viewStart
-		}
-		if selectedItem >= len(items) {
-			selectedItem = len(items) - 1
-		}
-	}
-
 	top := -1
 	if opts.Top > 0 {
 		top = opts.Top
@@ -172,6 +142,49 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (button 
 		}
 		if viewStart < 0 {
 			viewStart = 0
+		}
+	}
+	// Page jumps (the shoulder buttons, PgUp/PgDn). They never land on the
+	// rows above first (e.g. [Pick Random Game]), and at either end go
+	// round to the other, as Up and Down do.
+	first := 0
+	if opts.PageSkip < len(items) {
+		first = opts.PageSkip
+	}
+	land := func(i, dir int) {
+		selectedItem = i
+		settle(dir)
+		if selectedItem < first {
+			selectedItem = first
+			settle(1)
+		}
+		showSelected()
+	}
+	pageUp := func() {
+		switch {
+		case selectedItem <= first: // at the top: round to the bottom
+			land(len(items)-1, -1)
+		case viewStart-pgAmount <= 0:
+			viewStart = 0
+			land(first, 1)
+		default:
+			viewStart -= pgAmount
+			land(viewStart, 1)
+		}
+	}
+	pageDown := func() {
+		switch {
+		case selectedItem >= len(items)-1: // at the bottom: round to the top
+			viewStart = 0
+			land(first, 1)
+		case viewStart+viewHeight >= len(items): // the last page (or a short list)
+			land(len(items)-1, -1)
+		default:
+			viewStart += pgAmount
+			if viewStart+viewHeight > len(items) {
+				viewStart = len(items) - viewHeight
+			}
+			land(viewStart, -1)
 		}
 	}
 	// countable is the number of real entries, and the highlight's position
@@ -370,26 +383,18 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (button 
 					selectedButton = opts.ActionButton
 				}
 				pageUp()
-				settle(1)
-				showSelected()
 			case gc.KEY_PAGEDOWN:
 				if opts.SnapToAction {
 					selectedButton = opts.ActionButton
 				}
 				pageDown()
-				settle(-1)
-				showSelected()
 			case gc.KEY_ENTER, 10, 13:
 				if selectedButton == opts.ActionButton {
 					return selectedButton, selectedItem, nil
 				} else if selectedButton < len(opts.Buttons) && opts.Buttons[selectedButton] == "PgUp" {
 					pageUp()
-					settle(1)
-					showSelected()
 				} else if selectedButton < len(opts.Buttons) && opts.Buttons[selectedButton] == "PgDn" {
 					pageDown()
-					settle(-1)
-					showSelected()
 				} else {
 					if selectedButton < len(opts.Buttons) {
 						for _, b := range opts.ItemButtons {

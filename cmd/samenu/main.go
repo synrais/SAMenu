@@ -311,6 +311,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				Width:         systemListWidth,
 				Height:        listHeight,
 				InitialIndex:  currentIndex,
+				PageSkip:      r, // the shoulders never land on [Pick Random Game]
 				DynamicActionLabel: func(idx int) string {
 					if idx < r {
 						return "Pick"
