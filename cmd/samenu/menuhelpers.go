@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	gc "github.com/rthornton128/goncurses"
 
 	"github.com/synrais/SAMenu/pkg/curses"
@@ -87,10 +89,24 @@ type menuScreen struct {
 func (m *menuScreen) run(stdscr *gc.Window) {
 	buttons := []string{"Select", "Back"}
 	cameBack := false
+	pressed := "" // the name of the line last pressed
 	for {
 		lines := m.lines()
 		if len(lines) == 0 {
 			return
+		}
+		// Stay on the line pressed, if a line above it came or went: the
+		// nearest line of that name.
+		if pressed != "" {
+			best := -1
+			for i, l := range lines {
+				if lineName(l.text) == pressed && (best < 0 || abs(i-m.selected) < abs(best-m.selected)) {
+					best = i
+				}
+			}
+			if best >= 0 {
+				m.selected = best
+			}
 		}
 		items := make([]string, len(lines))
 		for i, l := range lines {
@@ -130,11 +146,21 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 			return
 		}
 		m.selected = sel
+		pressed = lineName(lines[sel].text)
 		if press := lines[sel].press; press != nil && press() {
 			return
 		}
 		cameBack = curses.ClosedByBack()
 	}
+}
+
+// lineName is a line's text without its value ("Playback:  Random" is
+// "Playback"), to find it again once its value changes.
+func lineName(text string) string {
+	if i := strings.Index(text, ":"); i >= 0 {
+		text = text[:i]
+	}
+	return strings.TrimSpace(text)
 }
 
 // -------------------------

@@ -165,10 +165,8 @@ func Run(cfg *config.Config) {
 	}()
 
 	status := func(s string) { _ = os.WriteFile(StatusFile, []byte(s+"\n"), 0644) }
-	at := -1           // In order: the track playing, in the folder
-	var last string    // Random: the track before this one
-	var current string // the track playing
-	back := false      // Previous was pressed
+	at := -1      // In order: the track playing, in the folder
+	back := false // Previous was pressed (In order only)
 	for {
 		// Settings can change while it runs (menu Options).
 		if c, err := config.Load(); err == nil {
@@ -186,23 +184,19 @@ func Run(cfg *config.Config) {
 			}
 			continue
 		}
-		// The next track, or with Previous the one before: In order, one
-		// back in the folder; Random, the one that played before.
+		// The next track: In order, the next in the folder (with Previous,
+		// the one before); Random, any.
 		var track string
-		switch {
-		case strings.EqualFold(cfg.Music.Playback, "In order"):
+		if strings.EqualFold(cfg.Music.Playback, "In order") {
 			if back {
 				at = (at - 1 + 2*len(tracks)) % len(tracks)
 			} else {
 				at = (at + 1) % len(tracks)
 			}
 			track = tracks[at]
-		case back && last != "":
-			track = last
-		default:
+		} else {
 			track = tracks[rand.Intn(len(tracks))]
 		}
-		last, current = current, track
 		switch play(cfg, track, cmds, status) {
 		case "stop":
 			return

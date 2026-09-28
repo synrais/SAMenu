@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	gc "github.com/rthornton128/goncurses"
@@ -26,7 +27,8 @@ func playlistName(p string) string {
 }
 
 // musicSkipped is whether Next track was pressed since the music started:
-// Previous track shows from then on.
+// Previous track shows from then on (In order only: Random has no order to
+// go back through).
 var musicSkipped bool
 
 // skipTrack sends the player "next" or "previous", and waits a moment for
@@ -73,7 +75,7 @@ func musicScreen(stdscr *gc.Window, cfg *config.Config) {
 					skipTrack("next")
 					musicSkipped = true
 				}))
-			if musicSkipped {
+			if musicSkipped && strings.EqualFold(m.Playback, "In order") {
 				lines = append(lines, action("Previous", "Previous track", func() { skipTrack("previous") }))
 			}
 		}
