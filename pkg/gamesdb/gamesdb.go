@@ -241,6 +241,7 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 	excluded, _ := games.ResolveSystems(cfg.Database.Exclude)
 	rules := NewRuleSet(cfg.DatabaseRules)
 	finder := games.NewSystemPathFinder(cfg) // each folder read once, for all systems
+	genres := NewGenreFinder(cfg)            // each folder's genres worked out once
 
 	for _, sys := range systems {
 		status.SystemId = sys.Id
@@ -250,7 +251,7 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 		if status.Skipped {
 			continue
 		}
-		files, err := scanSystem(cfg, finder, sys, rules)
+		files, err := scanSystem(finder, genres, sys, rules)
 		if err != nil {
 			return err
 		}
@@ -277,7 +278,7 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 
 // scanSystem finds one system's games in all its folders, as the database
 // holds them.
-func scanSystem(cfg *config.Config, finder *games.SystemPathFinder, sys games.System, rules RuleSet) ([]FileInfo, error) {
+func scanSystem(finder *games.SystemPathFinder, genres *GenreFinder, sys games.System, rules RuleSet) ([]FileInfo, error) {
 	var out []FileInfo
 	for _, sp := range finder.Paths(sys) {
 		pathFiles, err := games.GetFiles(sys.Id, sp.Path)
@@ -302,7 +303,7 @@ func scanSystem(cfg *config.Config, finder *games.SystemPathFinder, sys games.Sy
 			if strings.EqualFold(ext, "mra") {
 				file.Rotation = ReadRotation(fullPath)
 			}
-			file.Genres = GenresFor(cfg, menuPath, base)
+			file.Genres = genres.For(menuPath, base)
 			out = append(out, file)
 		}
 	}
@@ -342,6 +343,7 @@ func UpdateSystems(cfg *config.Config, added []games.System, removed map[string]
 	}
 	rules := NewRuleSet(cfg.DatabaseRules)
 	finder := games.NewSystemPathFinder(cfg)
+	genres := NewGenreFinder(cfg)
 
 	bySystem := map[string][]FileInfo{} // lower-case system ID -> games
 	for _, f := range current {
@@ -355,7 +357,7 @@ func UpdateSystems(cfg *config.Config, added []games.System, removed map[string]
 		status.SystemId = sys.Id
 		status.Step++
 		update(status)
-		files, err := scanSystem(cfg, finder, sys, rules)
+		files, err := scanSystem(finder, genres, sys, rules)
 		if err != nil {
 			return err
 		}

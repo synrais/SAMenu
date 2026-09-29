@@ -82,41 +82,95 @@ func GenreParent(key string) string {
 // GenresFor works out a game's genres from its menu path and file name,
 // with the ini's [Genres] / [Genres.Files] additions.
 func GenresFor(cfg *config.Config, menuPath, fileName string) []string {
-	loadGenreNames()
-	found := map[string]bool{}
-	add := func(key string) {
-		found[key] = true
-		if p := GenreParent(key); p != "" {
-			found[p] = true
-		}
+	menuPath = strings.ReplaceAll(menuPath, "\\", "/")
+	dir := ""
+	if i := strings.LastIndexByte(menuPath, '/'); i >= 0 {
+		dir = menuPath[:i]
 	}
-	parts := strings.Split(strings.ReplaceAll(menuPath, "\\", "/"), "/")
-	// The first part is the system, the last the file itself.
-	if len(parts) > 2 {
-		for _, folder := range parts[1 : len(parts)-1] {
-			if key, ok := genreLookup[normaliseGenreFolder(folder)]; ok {
-				add(key)
-			}
-			if cfg != nil {
-				for g, pats := range cfg.GenreFolders {
-					for _, p := range pats {
-						if matchPattern(p, folder) || matchPattern(p, normaliseGenreFolder(folder)) {
-							add(genreKey(g))
-						}
+	return mergeGenres(folderGenres(cfg, dir), fileGenres(cfg, fileName))
+}
+
+// GenreFinder is GenresFor for a whole database build: a folder's genres
+// are worked out once, not again for every game in it (tidying a folder
+// name takes a regular expression and several passes), and the games in
+// a folder share one genre list.
+type GenreFinder struct {
+	cfg  *config.Config
+	dirs map[string][]string
+}
+
+func NewGenreFinder(cfg *config.Config) *GenreFinder {
+	return &GenreFinder{cfg: cfg, dirs: map[string][]string{}}
+}
+
+// For is GenresFor(cfg, menuPath, fileName). The list it returns may be
+// shared with other games: it must not be changed.
+func (g *GenreFinder) For(menuPath, fileName string) []string {
+	menuPath = strings.ReplaceAll(menuPath, "\\", "/")
+	dir := ""
+	if i := strings.LastIndexByte(menuPath, '/'); i >= 0 {
+		dir = menuPath[:i]
+	}
+	folder, ok := g.dirs[dir]
+	if !ok {
+		folder = folderGenres(g.cfg, dir)
+		g.dirs[dir] = folder
+	}
+	return mergeGenres(folder, fileGenres(g.cfg, fileName))
+}
+
+// folderGenres is the genres from a game's folders: dir is its menu path
+// without the file ("System/Folder/Sub"); the first part, the system,
+// doesn't count.
+func folderGenres(cfg *config.Config, dir string) []string {
+	loadGenreNames()
+	parts := strings.Split(dir, "/")
+	if len(parts) < 2 {
+		return nil
+	}
+	found := map[string]bool{}
+	for _, folder := range parts[1:] {
+		if key, ok := genreLookup[normaliseGenreFolder(folder)]; ok {
+			addGenre(found, key)
+		}
+		if cfg != nil {
+			for g, pats := range cfg.GenreFolders {
+				for _, p := range pats {
+					if matchPattern(p, folder) || matchPattern(p, normaliseGenreFolder(folder)) {
+						addGenre(found, genreKey(g))
 					}
 				}
 			}
 		}
 	}
-	if cfg != nil {
-		for g, pats := range cfg.GenreFiles {
-			for _, p := range pats {
-				if matchPattern(p, fileName) || matchPattern(p, strings.TrimSuffix(fileName, fileExt(fileName))) {
-					add(genreKey(g))
-				}
+	return sortedGenres(found)
+}
+
+// fileGenres is the genres from a game's file name ([Genres.Files]).
+func fileGenres(cfg *config.Config, fileName string) []string {
+	if cfg == nil || len(cfg.GenreFiles) == 0 {
+		return nil
+	}
+	found := map[string]bool{}
+	for g, pats := range cfg.GenreFiles {
+		for _, p := range pats {
+			if matchPattern(p, fileName) || matchPattern(p, strings.TrimSuffix(fileName, fileExt(fileName))) {
+				addGenre(found, genreKey(g))
 			}
 		}
 	}
+	return sortedGenres(found)
+}
+
+// addGenre adds a genre, and its parent genre for a sub-genre.
+func addGenre(found map[string]bool, key string) {
+	found[key] = true
+	if p := GenreParent(key); p != "" {
+		found[p] = true
+	}
+}
+
+func sortedGenres(found map[string]bool) []string {
 	if len(found) == 0 {
 		return nil
 	}
@@ -126,6 +180,25 @@ func GenresFor(cfg *config.Config, menuPath, fileName string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// mergeGenres joins folder and file genres. With no file genres (nearly
+// always) it's the folder's list itself, shared.
+func mergeGenres(folder, file []string) []string {
+	if len(file) == 0 {
+		return folder
+	}
+	if len(folder) == 0 {
+		return file
+	}
+	found := map[string]bool{}
+	for _, g := range folder {
+		found[g] = true
+	}
+	for _, g := range file {
+		found[g] = true
+	}
+	return sortedGenres(found)
 }
 
 func fileExt(name string) string {
