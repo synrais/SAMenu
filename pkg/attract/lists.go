@@ -2,9 +2,9 @@
 //
 // Attract mode's per-system game lists, read and written here:
 //
-//	.MiSTer_SAM/Lists/Blacklist/SNES_blacklist.txt    games never to play
-//	.MiSTer_SAM/Lists/Staticlist/SNES_staticlist.txt  when a game goes static
-//	.MiSTer_SAM/Lists/Whitelist/SNES_whitelist.txt    the only games to play
+//	.MiSTer_SAMenu/Lists/Blacklist/SNES_blacklist.txt    games never to play
+//	.MiSTer_SAMenu/Lists/Staticlist/SNES_staticlist.txt  when a game goes static
+//	.MiSTer_SAMenu/Lists/Whitelist/SNES_whitelist.txt    the only games to play
 //
 // Each line is one game title (with or without its file extension). Static
 // list lines start with the time in seconds: "<42> Super Mario World (USA)".

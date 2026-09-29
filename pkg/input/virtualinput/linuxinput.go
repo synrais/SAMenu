@@ -22,8 +22,6 @@ type Keyboard struct {
 // duration which is used between presses to avoid overloading the OS or user
 // applications. This device must be closed when the service stops.
 func NewKeyboard(delay time.Duration) (Keyboard, error) {
-	// Initialize legacy key mappings before creating the device
-
 	kbd, err := uinput.CreateKeyboard(uinputDev, []byte(DeviceName))
 	if err != nil {
 		return Keyboard{}, fmt.Errorf("failed to create keyboard device: %w", err)

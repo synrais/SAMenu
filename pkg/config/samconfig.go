@@ -208,7 +208,7 @@ type MenuConfig struct {
 
 	// Menu list sorting
 	SystemGroup      string `ini:"systemgroup"`      // Manufacturer, Category, None
-	SystemGroupOrder string `ini:"systemgrouporder"` // Alphabetical, Oldest first, Custom
+	SystemGroupOrder string `ini:"systemgrouporder"` // A-Z, Oldest first, Custom
 	CategoryOrder    string `ini:"categoryorder"`    // e.g. "Arcade, Console, Handheld, Computer, Other"
 	SystemSubgroup   string `ini:"systemsubgroup"`   // Manufacturer, Category, None
 	GroupHeaders     string `ini:"groupheaders"`     // Off, Line, Double, Brackets, Dots, Minimal
@@ -381,16 +381,13 @@ func Load() (*Config, error) {
 		}
 	}
 
-	// [Database.X] and [Attract.X] rule sections. Old [Disable.X] sections
-	// are read as Database rules so existing SAMenu.ini files keep working.
+	// [Database.X] and [Attract.X] rule sections.
 	for _, sec := range file.Sections() {
 		var dest map[string]Rules
 		name := sec.Name()
 		switch {
 		case strings.HasPrefix(name, "database."):
 			dest, name = cfg.DatabaseRules, strings.TrimPrefix(name, "database.")
-		case strings.HasPrefix(name, "disable."):
-			dest, name = cfg.DatabaseRules, strings.TrimPrefix(name, "disable.")
 		case strings.HasPrefix(name, "attract."):
 			dest, name = cfg.AttractRules, strings.TrimPrefix(name, "attract.")
 		case strings.HasPrefix(name, "staticdetector."):

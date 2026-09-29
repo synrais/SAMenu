@@ -139,7 +139,7 @@ func MatchesAny(patterns []string, f FileInfo) bool {
 		return false
 	}
 	full := f.FileName()
-	parts := menuFolders(strings.ReplaceAll(f.MenuDir, "\\", "/"))
+	parts := menuFolders(f.MenuDir)
 	var folders []string
 	if len(parts) > 1 {
 		folders = parts[1:]

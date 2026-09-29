@@ -58,7 +58,7 @@ func gameName(name, ext string) string {
 // applySortConfig loads the sorting settings from SAMenu.ini's [Menu].
 func applySortConfig(m config.MenuConfig) {
 	optGroup.set(m.SystemGroup)
-	optGroupOrder.set(azName(m.SystemGroupOrder))
+	optGroupOrder.set(m.SystemGroupOrder)
 	if order := normaliseOrder(m.CategoryOrder); order != "" {
 		found := false
 		for i, v := range optCategoryOrder.values {
@@ -72,7 +72,7 @@ func applySortConfig(m config.MenuConfig) {
 		}
 	}
 	optSubgroup.set(m.SystemSubgroup)
-	optWithin.set(azName(m.SystemOrder))
+	optWithin.set(m.SystemOrder)
 	optHeaders.set(m.GroupHeaders)
 	optGroupView.set(m.GroupView)
 	optArcadeFirst.setBool(m.ArcadeFirst)
@@ -114,14 +114,6 @@ func normaliseOrder(s string) string {
 		}
 	}
 	return strings.Join(parts, ", ")
-}
-
-// azName reads older SAMenu.ini files, which said "Alphabetical" for A-Z.
-func azName(v string) string {
-	if strings.EqualFold(strings.TrimSpace(v), "Alphabetical") {
-		return "A-Z"
-	}
-	return v
 }
 
 // fixSortOptions keeps the settings consistent: the second grouping can't

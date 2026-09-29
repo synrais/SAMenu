@@ -96,7 +96,6 @@ func NewGenreFinder(cfg *config.Config) *GenreFinder {
 // For is a game's genres, from its menu path and file name. The list it
 // returns may be shared with other games: it must not be changed.
 func (g *GenreFinder) For(menuPath, fileName string) []string {
-	menuPath = strings.ReplaceAll(menuPath, "\\", "/")
 	dir := ""
 	if i := strings.LastIndexByte(menuPath, '/'); i >= 0 {
 		dir = menuPath[:i]

@@ -38,7 +38,7 @@ Games
   -launch <file> -core CORE    ...with another core, e.g. -core _Unstable/NES
   -random                      Launch a random game
   -random Nintendo             ...from these systems or groups
-  -list (or -print)            Print every game in the database
+  -list                        Print every game in the database
   -rebuild                     Rebuild the games database
   -genres                      Print the genres found in the database, with counts per system
 

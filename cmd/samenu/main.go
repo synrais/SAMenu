@@ -606,7 +606,6 @@ func main() {
 	// -h shows helpText (help.go): add any new option there too.
 	listPtr := flag.Bool("list", false, "Print every game in the database, one per line")
 	genresPtr := flag.Bool("genres", false, "Print the genres found in the games database, with counts per system")
-	printPtr := flag.Bool("print", false, "Same as -list")
 	statusPtr := flag.Bool("status", false, "Show whether attract mode is running, and what it's playing")
 	stopPtr := flag.Bool("stop", false, "Stop attract mode and go back to the MiSTer menu")
 	nextPtr := flag.Bool("next", false, "Attract mode: next game")
@@ -657,7 +656,7 @@ func main() {
 	}
 	timestampOutput() // background attract mode: times in its log
 
-	if *listPtr || *printPtr {
+	if *listPtr {
 		listGames()
 		return
 	}

@@ -146,7 +146,7 @@ func SortSystemNamesWith(names []string, o SortOptions) {
 				earliest["2|"+la+"|"+strings.ToLower(sa)], earliest["2|"+lb+"|"+strings.ToLower(sb)]) < 0
 		}
 
-		if o.Within == "A-Z" || o.Within == "Alphabetical" {
+		if o.Within == "A-Z" {
 			return utils.LessFold(a.Name, b.Name)
 		}
 		return releasedBefore(a, b)

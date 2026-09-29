@@ -1,10 +1,11 @@
 package virtualinput
 
-// This module exists to support the deprecated input.key command, which used
-// uinput codes directly to press keys. The zapscript module will not work on
-// non-Linux platforms if the map isn't split out of the uinput-dependent
-// parent module.
+import "strings"
 
+// KeyboardMap names the virtual keyboard's keys (uinput key codes), for
+// BIOS skip sequences ("key:enter") and SAMenu's own presses (F9 to show
+// the console). Named keys are written in braces here ("{f9}"), and can be
+// given with or without them (ToKeyboardCode).
 var KeyboardMap = map[string]int{
 	"{esc}":        1,
 	"{escape}":     1,
@@ -158,4 +159,16 @@ var KeyboardMap = map[string]int{
 	"B":      -48,
 	"N":      -49,
 	"M":      -50,
+}
+
+// ToKeyboardCode looks up a key by name: "a", "{f9}" or "f9" (named keys
+// work with or without braces).
+func ToKeyboardCode(name string) (int, bool) {
+	if v, ok := KeyboardMap[name]; ok { // direct reference, no prefix
+		return v, ok
+	}
+	if v, ok := KeyboardMap["{"+strings.Trim(name, "{}")+"}"]; ok {
+		return v, ok
+	}
+	return 0, false
 }

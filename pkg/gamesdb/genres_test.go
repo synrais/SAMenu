@@ -72,7 +72,7 @@ func TestGenreFinderUnchanged(t *testing.T) {
 		"SNES/_Racing/Mario Kart.sfc",
 		"SNES/[Puzzle]/Tetris.sfc",
 		"PSX/Party Games.zip/Mario Party.chd",
-		"PSX\\Genres\\Shoot'em up\\R-Type.chd",
+		"PSX/Genres/Shoot'em up/R-Type.chd",
 		"PSX/Game.chd",
 		"Game.chd",
 		"NES/Links Folder/Street Fighter II.nes",
@@ -82,7 +82,7 @@ func TestGenreFinderUnchanged(t *testing.T) {
 		finder := NewGenreFinder(c)
 		for round := 0; round < 2; round++ { // the second round comes from the cache
 			for _, p := range paths {
-				name := p[strings.LastIndexAny(p, "/\\")+1:]
+				name := p[strings.LastIndexByte(p, '/')+1:]
 				want := genresForOld(c, p, name)
 				got := finder.For(p, name)
 				if len(want) > 0 {

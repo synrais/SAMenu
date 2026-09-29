@@ -87,7 +87,7 @@ func mustConfig() *config.Config {
 	return cfg
 }
 
-// listGames prints every game in the database (the old -print).
+// listGames prints every game in the database (-list).
 func listGames() {
 	files, err := loadOrBuild(mustConfig())
 	if err != nil {
