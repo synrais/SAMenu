@@ -109,9 +109,65 @@ type Entry struct {
 	sortKey string    // from Node.SortKeys
 }
 
+// listing is what a folder's listing depends on, besides the folder.
+type listing struct {
+	order   GameOrder
+	folders string
+	ok      bool
+}
+
+// recentListings are the folders that keep their listing: the last few
+// opened, enough for going in and out of folders and back, without
+// keeping a listing for every folder ever opened.
+var recentListings []*Node
+
+const keptListings = 8
+
 // Entries lists a folder's subfolders and games in the given order.
 // folders is "First", "Last" or "Mixed" (in with the games, by name).
+//
+// Working a listing out sorts the whole folder and looks for multi-disc
+// games in it, which takes a moment for a big folder on the MiSTer, so the
+// last few folders' listings are kept: coming back to a folder (after a
+// game, or from a subfolder) shows it straight away. A kept listing is
+// used only for the same order settings. The list returned is shared: it
+// must not be changed.
 func (n *Node) Entries(o GameOrder, folders string) []Entry {
+	want := listing{o, folders, true}
+	if n.listedFor == want {
+		return n.listed
+	}
+	n.listed, n.listedFor = n.entries(o, folders), want
+	for i, r := range recentListings {
+		if r == n {
+			recentListings = append(recentListings[:i], recentListings[i+1:]...)
+			break
+		}
+	}
+	recentListings = append(recentListings, n)
+	if len(recentListings) > keptListings {
+		recentListings[0].Forget()
+		recentListings = recentListings[1:]
+	}
+	return n.listed
+}
+
+// forgetListings drops every kept listing: a new tree has replaced the
+// old one, which mustn't be kept in memory by them.
+func forgetListings() {
+	for _, n := range recentListings {
+		n.Forget()
+	}
+	recentListings = nil
+}
+
+// Forget drops the folder's kept listing, for a folder whose games have
+// changed (Favourites after one is removed).
+func (n *Node) Forget() {
+	n.listed, n.listedFor = nil, listing{}
+}
+
+func (n *Node) entries(o GameOrder, folders string) []Entry {
 	var pinned, dirs, files []Entry
 	for name, child := range n.Children {
 		if child.Pinned {

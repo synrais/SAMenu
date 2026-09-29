@@ -23,6 +23,11 @@ type Node struct {
 	// instead of by their names, e.g. the [Genres] folder, whose names
 	// carry the system: "[SNES] Street Fighter II".
 	SortKeys []string
+
+	// The folder's listing as last worked out (see Entries), and what
+	// for.
+	listed    []Entry
+	listedFor listing
 }
 
 // AddAZFolder adds a pinned folder called name holding every game in this
@@ -74,6 +79,7 @@ func (n *Node) SystemID() string { return n.firstSystemId() }
 // change while it's in use. Games marked in hidden (nil = none) are left
 // out.
 func BuildTree(files []FileInfo, hidden []bool) *Node {
+	forgetListings()
 	root := newNode("")
 	for i := range files {
 		if hidden != nil && hidden[i] {

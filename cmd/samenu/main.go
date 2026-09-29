@@ -381,6 +381,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 					// Rebuild the folder without it, in place.
 					fresh := buildFavouritesNode(cfg)
 					node.Files, node.SortKeys = fresh.Files, fresh.SortKeys
+					node.Forget()
 					favouritesNode = node
 					if len(node.Files) == 0 {
 						clearScreen(stdscr)

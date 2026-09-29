@@ -72,3 +72,54 @@ func TestNaturalCompareUnchanged(t *testing.T) {
 		}
 	}
 }
+
+func TestEntriesKept(t *testing.T) {
+	var files []FileInfo
+	for _, n := range []string{"Game 10", "Game 2", "The Zelda", "Aladdin", "FF7 (Disc 1)", "FF7 (Disc 2)"} {
+		files = append(files, FileInfo{SystemId: "PSX", Name: n, Ext: "chd", MenuPath: "PSX/" + n + ".chd"})
+	}
+	files = append(files, FileInfo{SystemId: "PSX", Name: "x", Ext: "chd", MenuPath: "PSX/Sub/x.chd"})
+	psx := BuildTree(files, nil).Children["PSX"]
+	orders := []GameOrder{{}, {Natural: true}, {IgnoreThe: true}, {GroupDiscs: true}, {Natural: true, GroupDiscs: true}}
+	for round := 0; round < 2; round++ {
+		for _, o := range orders {
+			for _, folders := range []string{"First", "Last", "Mixed"} {
+				got := psx.Entries(o, folders)
+				want := psx.entries(o, folders)
+				if len(got) != len(want) {
+					t.Fatalf("%+v %s: %d entries, want %d", o, folders, len(got), len(want))
+				}
+				for i := range got {
+					if got[i].Folder != want[i].Folder || got[i].File != want[i].File || got[i].sortKey != want[i].sortKey {
+						t.Fatalf("%+v %s: entry %d differs", o, folders, i)
+					}
+				}
+			}
+		}
+	}
+	// The same settings again: the kept listing itself.
+	a := psx.Entries(GameOrder{Natural: true}, "First")
+	b := psx.Entries(GameOrder{Natural: true}, "First")
+	if &a[0] != &b[0] {
+		t.Error("listing worked out again for the same settings")
+	}
+	psx.Forget()
+	if c := psx.Entries(GameOrder{Natural: true}, "First"); &c[0] == &a[0] {
+		t.Error("Forget kept the listing")
+	}
+	// Only the last few folders keep theirs.
+	var nodes []*Node
+	for i := 0; i < keptListings+3; i++ {
+		n := newNode("f")
+		n.Files = []*FileInfo{&files[0]}
+		n.Entries(GameOrder{}, "First")
+		nodes = append(nodes, n)
+	}
+	if len(recentListings) != keptListings || nodes[0].listed != nil || nodes[len(nodes)-1].listed == nil {
+		t.Errorf("kept %d listings; oldest kept: %v", len(recentListings), nodes[0].listed != nil)
+	}
+	BuildTree(nil, nil)
+	if len(recentListings) != 0 || nodes[len(nodes)-1].listed != nil {
+		t.Error("a new tree didn't drop the kept listings")
+	}
+}
