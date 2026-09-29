@@ -2,6 +2,7 @@ package input
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -36,10 +37,15 @@ type Event struct {
 }
 
 func (e Event) String() string {
-	if e.Hint != "" {
-		return fmt.Sprintf("%s (%s): %s (%s)", e.Kind, e.Device, e.Name, e.Hint)
+	// The device file too ("js0"): two controllers can share a name.
+	dev := e.Device
+	if e.Path != "" {
+		dev += ", " + filepath.Base(e.Path)
 	}
-	return fmt.Sprintf("%s (%s): %s", e.Kind, e.Device, e.Name)
+	if e.Hint != "" {
+		return fmt.Sprintf("%s (%s): %s (%s)", e.Kind, dev, e.Name, e.Hint)
+	}
+	return fmt.Sprintf("%s (%s): %s", e.Kind, dev, e.Name)
 }
 
 // Options picks which detectors run ([InputDetector] in SAMenu.ini).

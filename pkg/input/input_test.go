@@ -302,6 +302,10 @@ func TestAxisHints(t *testing.T) {
 	if ev.String() != "joystick (Twin USB Joystick): lefty- (left stick up)" {
 		t.Errorf("String: %s", ev)
 	}
+	ev.Path = "/dev/input/js1"
+	if ev.String() != "joystick (Twin USB Joystick, js1): lefty- (left stick up)" {
+		t.Errorf("String with path: %s", ev)
+	}
 }
 
 func TestGate(t *testing.T) {
