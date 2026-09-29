@@ -410,8 +410,9 @@ func (st *menuState) build(stdscr *gc.Window, files []MenuFile) {
 
 func (st *menuState) load(files []MenuFile) {
 	st.files = files
-	st.tree = buildTree(menuHide.Without(files)) // minus [Menu] HideTags
-	st.genreTree, st.genresFor = buildGenreTree(menuHide.Without(files)), genreSettings()
+	shown := menuHide.Without(files) // minus [Menu] HideTags: worked out once for both trees
+	st.tree = buildTree(shown)
+	st.genreTree, st.genresFor = buildGenreTree(shown), genreSettings()
 	currentTree = st.tree
 	tree := st.tree
 	gameCount = func(system string) int { return uniqueGames(tree.Children[system]) }
