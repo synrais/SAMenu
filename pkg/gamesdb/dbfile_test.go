@@ -2,7 +2,6 @@ package gamesdb
 
 import (
 	"bytes"
-	"encoding/gob"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -102,31 +101,6 @@ func TestDBDamaged(t *testing.T) {
 	}
 	if _, err := readDB([]byte("something else")); err == nil {
 		t.Error("not a games database: no error")
-	}
-}
-
-func TestLegacyDB(t *testing.T) {
-	old := []legacyFileInfo{
-		{SystemId: "SNES", Name: "Chrono Trigger (USA)", Ext: "sfc", Path: "/media/fat/games/SNES/RPG/Chrono Trigger (USA).sfc",
-			MenuPath: "SNES/RPG/Chrono Trigger (USA).sfc", Genres: []string{"RPG"}},
-		{SystemId: "NES", Name: "Tetris", Ext: "nes", Path: "/media/fat/games/NES/Tetris.nes", MenuPath: "NES/Tetris.nes"},
-	}
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(old); err != nil {
-		t.Fatal(err)
-	}
-	got, err := readLegacyDB(buf.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
-	for i, o := range old {
-		if got[i].MenuPath() != o.MenuPath || got[i].Path != o.Path || got[i].Name != o.Name ||
-			got[i].Ext != o.Ext || !reflect.DeepEqual(got[i].Genres, o.Genres) {
-			t.Errorf("game %d: %+v (menu path %q)", i, got[i], got[i].MenuPath())
-		}
-	}
-	if got[0].MenuDir != "SNES/RPG" {
-		t.Errorf("menu folder %q", got[0].MenuDir)
 	}
 }
 

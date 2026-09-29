@@ -1,7 +1,6 @@
 package gamesdb
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -108,80 +107,16 @@ func loadAll() ([]FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	var files []FileInfo
-	if bytes.HasPrefix(data, []byte(dbMagic)) {
-		if files, err = readDB(data); err != nil {
-			return nil, err
-		}
-	} else {
-		// An older games.db: read it, and save it in the new format so
-		// it loads fast from now on (unless a build is running, which
-		// writes one itself). Not saving it just means trying next time.
-		if files, err = readLegacyDB(data); err != nil {
-			return nil, err
-		}
-		if unlock, ok := tryLockBuild(); ok {
-			_ = saveAll(files)
-			unlock()
-		}
+	// An unreadable file (damaged, or from an older SAMenu) is treated
+	// as no database: the menu builds a new one.
+	files, err := readDB(data)
+	if err != nil {
+		return nil, err
 	}
 
 	cachedFiles = files
 	cacheLoaded = true
 	return cachedFiles, nil
-}
-
-// shareStrings makes games share the text they have in common, straight
-// after the database is read. Reading gives every game its own copy of
-// everything: its system ID, extension and genres (the same few words
-// over and over), and its name (already there at the end of its path).
-// Sharing them makes the database about 40% smaller in memory, and leaves
-// far fewer pieces for Go's memory clean-up to go through every time it
-// runs, for as long as the menu is open.
-func shareStrings(files []FileInfo) {
-	words := map[string]string{}
-	share := func(s string) string {
-		if s == "" {
-			return s
-		}
-		if w, ok := words[s]; ok {
-			return w
-		}
-		words[s] = s
-		return s
-	}
-	lists := map[string][]string{} // genre lists, by their genres joined
-	var key []byte
-	for i := range files {
-		f := &files[i]
-		f.SystemId = share(f.SystemId)
-		f.MenuDir = share(f.MenuDir)
-		f.Ext = share(f.Ext)
-		f.Rotation = share(f.Rotation)
-		// The name is the end of the path: "<name>.<ext>" (or "<name>").
-		tail := len(f.Name)
-		if f.Ext != "" {
-			tail += 1 + len(f.Ext)
-		}
-		if start := len(f.Path) - tail; start >= 0 && f.Path[start:start+len(f.Name)] == f.Name &&
-			(f.Ext == "" || f.Path[start+len(f.Name)] == '.' && f.Path[start+len(f.Name)+1:] == f.Ext) {
-			f.Name = f.Path[start : start+len(f.Name)]
-		}
-		if len(f.Genres) > 0 {
-			key = key[:0]
-			for _, g := range f.Genres {
-				key = append(append(key, g...), 0)
-			}
-			if l, ok := lists[string(key)]; ok {
-				f.Genres = l
-			} else {
-				for j, g := range f.Genres {
-					f.Genres[j] = share(g)
-				}
-				lists[string(key)] = f.Genres
-			}
-		}
-	}
 }
 
 // saveAll writes the database to a temporary file first and then swaps it
@@ -234,23 +169,6 @@ func lockBuild(waiting func()) (unlock func(), waited bool) {
 		_ = syscall.Flock(fd, syscall.LOCK_UN)
 		f.Close()
 	}, waited
-}
-
-// tryLockBuild takes the build lock only if nobody has it.
-func tryLockBuild() (unlock func(), ok bool) {
-	f, err := os.OpenFile(buildLockFile, os.O_CREATE|os.O_RDWR, 0666)
-	if err != nil {
-		return nil, false
-	}
-	fd := int(f.Fd())
-	if syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB) != nil {
-		f.Close()
-		return nil, false
-	}
-	return func() {
-		_ = syscall.Flock(fd, syscall.LOCK_UN)
-		f.Close()
-	}, true
 }
 
 // -------------------------

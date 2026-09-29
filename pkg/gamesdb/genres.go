@@ -79,21 +79,11 @@ func GenreParent(key string) string {
 	return ""
 }
 
-// GenresFor works out a game's genres from its menu path and file name,
-// with the ini's [Genres] / [Genres.Files] additions.
-func GenresFor(cfg *config.Config, menuPath, fileName string) []string {
-	menuPath = strings.ReplaceAll(menuPath, "\\", "/")
-	dir := ""
-	if i := strings.LastIndexByte(menuPath, '/'); i >= 0 {
-		dir = menuPath[:i]
-	}
-	return mergeGenres(folderGenres(cfg, dir), fileGenres(cfg, fileName))
-}
-
-// GenreFinder is GenresFor for a whole database build: a folder's genres
-// are worked out once, not again for every game in it (tidying a folder
-// name takes a regular expression and several passes), and the games in
-// a folder share one genre list.
+// GenreFinder works out games' genres from their menu paths and file
+// names, with the ini's [Genres] / [Genres.Files] additions, for a whole
+// database build: a folder's genres are worked out once, not again for
+// every game in it (tidying a folder name takes a regular expression and
+// several passes), and the games in a folder share one genre list.
 type GenreFinder struct {
 	cfg  *config.Config
 	dirs map[string][]string
@@ -103,8 +93,8 @@ func NewGenreFinder(cfg *config.Config) *GenreFinder {
 	return &GenreFinder{cfg: cfg, dirs: map[string][]string{}}
 }
 
-// For is GenresFor(cfg, menuPath, fileName). The list it returns may be
-// shared with other games: it must not be changed.
+// For is a game's genres, from its menu path and file name. The list it
+// returns may be shared with other games: it must not be changed.
 func (g *GenreFinder) For(menuPath, fileName string) []string {
 	menuPath = strings.ReplaceAll(menuPath, "\\", "/")
 	dir := ""

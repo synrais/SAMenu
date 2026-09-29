@@ -9,9 +9,9 @@ import (
 	"github.com/synrais/SAMenu/pkg/config"
 )
 
-// genresForOld is GenresFor as it was, working everything out per game:
-// the per-folder version must give the same genres.
-// GenresFor works out a game's genres from its menu path and file name,
+// genresForOld is how genres were worked out before GenreFinder, for
+// each game: GenreFinder must give the same genres.
+// (as it was: every folder of every game worked out again)
 // with the ini's [Genres] / [Genres.Files] additions.
 func genresForOld(cfg *config.Config, menuPath, fileName string) []string {
 	loadGenreNames()
@@ -88,7 +88,7 @@ func TestGenreFinderUnchanged(t *testing.T) {
 				if len(want) > 0 {
 					nonEmpty++
 				}
-				if !reflect.DeepEqual(got, want) || !reflect.DeepEqual(GenresFor(c, p, name), want) {
+				if !reflect.DeepEqual(got, want) {
 					t.Errorf("%s: got %v, want %v", p, got, want)
 				}
 			}

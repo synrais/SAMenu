@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"encoding/gob"
 	"errors"
 	"io"
+	"math"
 	"path/filepath"
 	"strings"
 )
@@ -38,8 +38,9 @@ import (
 // The folder is the path up to and including its last "/"; the path is
 // folder + file name.
 //
-// An older games.db (Go's gob format) is still read, and saved in this
-// format straight away (see loadAll).
+// A file that isn't in this format (damaged, or from an older SAMenu,
+// which used Go's gob format) reads as an error, and the menu builds a
+// new database.
 
 const dbMagic = "SAMenu games database v2\n"
 
@@ -204,15 +205,15 @@ func readDB(data []byte) ([]FileInfo, error) {
 		return nil, errBadDB
 	}
 
-	// First pass: the records, and every path into one block of text.
-	type record struct {
-		start, dirLen, end int
-		explicit           bool
-		name, ext          string
-	}
+	// First pass: every path into one block of text, noting where each
+	// one ends and where its file name starts (numbers, not a working
+	// record per game: loading is when memory is tightest).
+	type named struct{ name, ext string }
 	files := make([]FileInfo, count)
-	records := make([]record, count)
-	all := make([]byte, 0, len(data))
+	ends := make([]int32, count)   // where each path ends in the block
+	baseAt := make([]int32, count) // where its file name starts
+	explicit := map[int]named{}    // the rare games with their own name
+	all := make([]byte, 0, 2*len(data))
 	for i := range files {
 		f := &files[i]
 		f.SystemId = textAt(getNum())
@@ -226,24 +227,23 @@ func readDB(data []byte) ([]FileInfo, error) {
 			f.Genres = lists[g-1]
 		}
 		base := getBytes()
-		r := record{start: len(all), dirLen: len(dir)}
-		all = append(append(all, dir...), base...)
-		r.end = len(all)
+		all = append(all, dir...)
+		baseAt[i] = int32(len(all))
+		all = append(all, base...)
+		ends[i] = int32(len(all))
 		if pos >= len(data) {
 			return nil, errBadDB
 		}
 		flag := data[pos]
 		pos++
 		if flag == 1 {
-			r.explicit = true
-			r.name, r.ext = string(getBytes()), string(getBytes())
+			explicit[i] = named{string(getBytes()), string(getBytes())}
 		} else if flag != 0 {
 			return nil, errBadDB
 		}
-		if bad {
+		if bad || len(all) > math.MaxInt32 {
 			return nil, errBadDB
 		}
-		records[i] = r
 	}
 	if pos != len(data) {
 		return nil, errBadDB
@@ -251,14 +251,17 @@ func readDB(data []byte) ([]FileInfo, error) {
 
 	// Second pass: paths and names point into the block.
 	block := string(all)
+	all = nil
+	start := int32(0)
 	for i := range files {
-		f, r := &files[i], records[i]
-		f.Path = block[r.start:r.end]
-		if r.explicit {
-			f.Name, f.Ext = r.name, r.ext
+		f := &files[i]
+		f.Path = block[start:ends[i]]
+		if e, ok := explicit[i]; ok {
+			f.Name, f.Ext = e.name, e.ext
 		} else {
-			f.Name, f.Ext = nameAndExt(f.Path[r.dirLen:])
+			f.Name, f.Ext = nameAndExt(block[baseAt[i]:ends[i]])
 		}
+		start = ends[i]
 	}
 	return files, nil
 }
@@ -275,36 +278,6 @@ func splitPath(path string) (dir, base string) {
 func nameAndExt(base string) (name, ext string) {
 	e := filepath.Ext(base)
 	return base[:len(base)-len(e)], strings.TrimPrefix(e, ".")
-}
-
-// legacyFileInfo is a game as the older gob games.db has it.
-type legacyFileInfo struct {
-	SystemId string
-	Name     string
-	Ext      string
-	Path     string
-	MenuPath string
-	Rotation string
-	Genres   []string
-}
-
-// readLegacyDB reads an older gob games.db.
-func readLegacyDB(data []byte) ([]FileInfo, error) {
-	var old []legacyFileInfo
-	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&old); err != nil {
-		return nil, err
-	}
-	files := make([]FileInfo, len(old))
-	for i, o := range old {
-		menuDir := ""
-		if j := strings.LastIndexByte(o.MenuPath, '/'); j >= 0 {
-			menuDir = o.MenuPath[:j]
-		}
-		files[i] = FileInfo{SystemId: o.SystemId, Name: o.Name, Ext: o.Ext, Path: o.Path,
-			MenuDir: menuDir, Rotation: o.Rotation, Genres: o.Genres}
-	}
-	shareStrings(files)
-	return files, nil
 }
 
 // KeepOwnText gives files (a few games kept from the whole database) their
