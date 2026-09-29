@@ -44,7 +44,9 @@ func nodeFiles(n *gamesdb.Node) []MenuFile {
 		if x == nil {
 			return
 		}
-		files = append(files, x.Files...)
+		for _, f := range x.Files {
+			files = append(files, *f)
+		}
 		for _, c := range x.Children {
 			if !c.Pinned {
 				walk(c)

@@ -203,7 +203,7 @@ func gameSortOptions(stdscr *gc.Window, cfg *config.Config) {
 	sample := &gamesdb.Node{Children: map[string]*gamesdb.Node{"Hacks": {}, "Translations": {}}}
 	for _, name := range []string{"Game 10", "Game 2", "The Legend of Zelda", "Aladdin", "Metroid",
 		"Final Fantasy VII (Disc 1)", "Final Fantasy VII (Disc 2)"} {
-		sample.Files = append(sample.Files, gamesdb.FileInfo{Name: name, Ext: "nes"})
+		sample.Files = append(sample.Files, &gamesdb.FileInfo{Name: name, Ext: "nes"})
 	}
 	// Hide games tagged: Beta, Proto, Disc 2+ ... (a tick list).
 	hide := labelOption{"Hide games tagged", []string{""}, 0}

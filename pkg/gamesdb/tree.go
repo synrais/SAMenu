@@ -8,10 +8,12 @@ import (
 )
 
 // Node is one folder in SAMenu tree. Subfolders are keyed by name
-// in Children, and Files holds the games directly inside this folder.
+// in Children, and Files holds the games directly inside this folder:
+// pointers to them, not copies, so a folder costs 8 bytes a game, and a
+// game in several folders ([Games A-Z]) is still stored once.
 type Node struct {
 	Name     string
-	Files    []FileInfo
+	Files    []*FileInfo
 	Children map[string]*Node
 	// Pinned folders always come first, whatever the folder sorting (the
 	// virtual [Games A-Z] folder).
@@ -29,7 +31,7 @@ type Node struct {
 // holds the same entries as the real folders.
 func (n *Node) AddAZFolder(name string) {
 	seen := map[string]bool{}
-	var files []FileInfo
+	var files []*FileInfo
 	var walk func(x *Node)
 	walk = func(x *Node) {
 		for _, f := range x.Files {
@@ -68,10 +70,12 @@ func (n *Node) SystemID() string { return n.firstSystemId() }
 // BuildTree turns database entries into a folder tree using each entry's
 // MenuPath (e.g. "SNES/RPG/Chrono Trigger.sfc"); the first level is the
 // systems. Every folder's games are sorted once here, by name (ignoring
-// case) and then extension.
+// case) and then extension. The tree points into files, which must not
+// change while it's in use.
 func BuildTree(files []FileInfo) *Node {
 	root := newNode("")
-	for _, f := range files {
+	for i := range files {
+		f := &files[i]
 		parts := strings.Split(f.MenuPath, "/")
 		curr := root
 		for _, part := range parts[:len(parts)-1] {

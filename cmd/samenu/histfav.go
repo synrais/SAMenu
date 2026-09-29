@@ -142,10 +142,11 @@ func buildHistoryNode(cfg *config.Config) *gamesdb.Node {
 	}
 	root := &gamesdb.Node{Name: "History", Children: map[string]*gamesdb.Node{}}
 	att := &gamesdb.Node{Name: "Attract", Children: map[string]*gamesdb.Node{}}
-	for i, f := range played {
+	for i := range played {
+		f := played[i] // a copy of its own: the folder points at it
 		keepOriginal(f)
 		f.Name = withSystem(cfg.Menu.HistorySystem, systemName(f.SystemId), f.Name)
-		att.Files = append(att.Files, f)
+		att.Files = append(att.Files, &f)
 		att.SortKeys = append(att.SortKeys, fmt.Sprintf("%06d", i)) // newest first
 	}
 	root.Children["Attract"] = att
@@ -165,10 +166,10 @@ func buildMenuHistoryNode(cfg *config.Config) *gamesdb.Node {
 	node := &gamesdb.Node{Name: "History", Children: map[string]*gamesdb.Node{}}
 	now := time.Now()
 	for i, e := range loadHistory() {
-		f := e.Game
+		f := e.Game // a copy of its own: the folder points at it
 		keepOriginal(f)
 		f.Name = fmt.Sprintf("%-9s  %s", dayLabel(e.At, now), withSystem(cfg.Menu.HistorySystem, systemName(f.SystemId), f.Name))
-		node.Files = append(node.Files, f)
+		node.Files = append(node.Files, &f)
 		node.SortKeys = append(node.SortKeys, fmt.Sprintf("%06d", i)) // as stored: newest first
 	}
 	return node
@@ -187,10 +188,11 @@ func buildFavouritesNode(cfg *config.Config) *gamesdb.Node {
 	node := &gamesdb.Node{Name: "Favourites", Children: map[string]*gamesdb.Node{}}
 	favs := loadFavourites()
 	sort.Slice(favs, func(i, j int) bool { return strings.ToLower(favs[i].Name) < strings.ToLower(favs[j].Name) })
-	for i, f := range favs {
+	for i := range favs {
+		f := favs[i] // a copy of its own: the folder points at it
 		keepOriginal(f)
 		f.Name = withSystem(cfg.Menu.FavouritesSystem, systemName(f.SystemId), f.Name)
-		node.Files = append(node.Files, f)
+		node.Files = append(node.Files, &f)
 		node.SortKeys = append(node.SortKeys, fmt.Sprintf("%06d", i))
 	}
 	favouritesNode = node

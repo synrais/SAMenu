@@ -96,7 +96,7 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 		if genresOrder == "System" {
 			sortKey = fmt.Sprintf("%04d", rank[sys]) + "\x00" + title
 		}
-		n.Files = append(n.Files, f)
+		n.Files = append(n.Files, &f)
 		n.SortKeys = append(n.SortKeys, sortKey)
 	}
 	for _, f := range files {

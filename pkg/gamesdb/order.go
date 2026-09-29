@@ -142,7 +142,7 @@ func (n *Node) Entries(o GameOrder, folders string) []Entry {
 	}
 	for i := range n.Files {
 		if !grouped[i] {
-			files = append(files, Entry{File: &n.Files[i], sortKey: fileKey(i)})
+			files = append(files, Entry{File: n.Files[i], sortKey: fileKey(i)})
 		}
 	}
 	key := func(e Entry) string {
