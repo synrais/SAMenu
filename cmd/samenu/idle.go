@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -83,6 +84,7 @@ func runIdleWatcher() {
 		JoystickEvery: 100 * time.Millisecond})
 	cfg := mustConfig()
 	lastInput, lastLoad := time.Now(), time.Now()
+	iniText, _ := os.ReadFile(cfg.Path)
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	for {
@@ -90,11 +92,17 @@ func runIdleWatcher() {
 		case <-events:
 			lastInput = time.Now()
 		case now := <-tick.C:
-			if now.Sub(lastLoad) > 10*time.Second { // pick up setting changes
-				if c, err := config.Load(); err == nil {
-					cfg = c
-				}
+			// Pick up setting changes: looked at every 10 seconds, but only
+			// worked through again when SAMenu.ini's text has changed (this
+			// runs the whole time the MiSTer is on). The text, not the file
+			// time: the SD card keeps times only to 2 seconds.
+			if now.Sub(lastLoad) > 10*time.Second {
 				lastLoad = now
+				if text, err := os.ReadFile(cfg.Path); err == nil && !bytes.Equal(text, iniText) {
+					if c, err := config.Load(); err == nil {
+						cfg, iniText = c, text
+					}
+				}
 			}
 			if !cfg.IdleWatch() {
 				return // switched off
