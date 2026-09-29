@@ -71,10 +71,14 @@ func (n *Node) SystemID() string { return n.firstSystemId() }
 // MenuPath (e.g. "SNES/RPG/Chrono Trigger.sfc"); the first level is the
 // systems. Every folder's games are sorted once here, by name (ignoring
 // case) and then extension. The tree points into files, which must not
-// change while it's in use.
-func BuildTree(files []FileInfo) *Node {
+// change while it's in use. Games marked in hidden (nil = none) are left
+// out.
+func BuildTree(files []FileInfo, hidden []bool) *Node {
 	root := newNode("")
 	for i := range files {
+		if hidden != nil && hidden[i] {
+			continue
+		}
 		f := &files[i]
 		parts := strings.Split(f.MenuPath, "/")
 		curr := root

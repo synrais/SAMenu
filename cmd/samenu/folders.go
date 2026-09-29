@@ -361,7 +361,7 @@ func (st *menuState) refreshGenres(stdscr *gc.Window) {
 		return
 	}
 	_ = withSpinner(func() error {
-		st.genreTree, st.genresFor = buildGenreTree(menuHide.Without(st.files)), genreSettings()
+		st.genreTree, st.genresFor = buildGenreTree(st.files, menuHide.Hidden(st.files)), genreSettings()
 		return nil
 	}, func(spin string) {
 		_ = curses.InfoBox(stdscr, "", "Loading... "+spin, false, false)
@@ -410,9 +410,9 @@ func (st *menuState) build(stdscr *gc.Window, files []MenuFile) {
 
 func (st *menuState) load(files []MenuFile) {
 	st.files = files
-	shown := menuHide.Without(files) // minus [Menu] HideTags: worked out once for both trees
-	st.tree = buildTree(shown)
-	st.genreTree, st.genresFor = buildGenreTree(shown), genreSettings()
+	hidden := menuHide.Hidden(files) // [Menu] HideTags: worked out once for both trees
+	st.tree = buildTree(files, hidden)
+	st.genreTree, st.genresFor = buildGenreTree(files, hidden), genreSettings()
 	currentTree = st.tree
 	tree := st.tree
 	gameCount = func(system string) int { return uniqueGames(tree.Children[system]) }

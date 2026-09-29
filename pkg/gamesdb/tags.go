@@ -160,16 +160,16 @@ func (f TagFilter) String() string {
 	return strings.Join(names, ", ")
 }
 
-// Without returns files minus the ones whose names have the filter's tags.
-func (f TagFilter) Without(files []FileInfo) []FileInfo {
+// Hidden marks the games whose names have the filter's tags (nil when the
+// filter is empty), for building the menu's trees without them: a list of
+// flags instead of a copy of every game that stays.
+func (f TagFilter) Hidden(files []FileInfo) []bool {
 	if f.Empty() {
-		return files
+		return nil
 	}
-	out := make([]FileInfo, 0, len(files))
-	for _, file := range files {
-		if !f.Matches(file.Name) {
-			out = append(out, file)
-		}
+	hidden := make([]bool, len(files))
+	for i := range files {
+		hidden[i] = f.Matches(files[i].Name)
 	}
-	return out
+	return hidden
 }

@@ -39,9 +39,13 @@ var genresLeftOut = map[string]bool{}
 //
 // It goes through every game, so it's kept lean: games are looked at in
 // place (files isn't copied), and each one's original is kept by pointer.
-func buildGenreTree(files []MenuFile) *gamesdb.Node {
-	leftOut := func(f *MenuFile) bool {
-		return len(genresLeftOut) > 0 && genresLeftOut[strings.ToLower(f.SystemId)]
+// Games marked in hidden ([Menu] HideTags; nil = none) are left out.
+func buildGenreTree(files []MenuFile, hidden []bool) *gamesdb.Node {
+	leftOut := func(i int) bool {
+		if hidden != nil && hidden[i] {
+			return true
+		}
+		return len(genresLeftOut) > 0 && genresLeftOut[strings.ToLower(files[i].SystemId)]
 	}
 	root := &gamesdb.Node{Name: "Genres", Children: map[string]*gamesdb.Node{}}
 	nameOf := games.DisplayName
@@ -49,7 +53,7 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 	var names []string
 	seenSys := map[string]bool{}
 	for i := range files {
-		if f := &files[i]; len(f.Genres) > 0 && !leftOut(f) && !seenSys[f.SystemId] {
+		if f := &files[i]; len(f.Genres) > 0 && !leftOut(i) && !seenSys[f.SystemId] {
 			seenSys[f.SystemId] = true
 			names = append(names, nameOf(f.SystemId))
 		}
@@ -111,7 +115,7 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 	}
 	for i := range files {
 		f := &files[i]
-		if len(f.Genres) == 0 || leftOut(f) {
+		if len(f.Genres) == 0 || leftOut(i) {
 			continue
 		}
 		for _, g := range f.Genres {

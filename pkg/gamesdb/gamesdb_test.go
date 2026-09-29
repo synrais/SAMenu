@@ -55,7 +55,7 @@ func TestBuildTreePointsAtEachGame(t *testing.T) {
 		{SystemId: "NES", Name: "Metroid", Ext: "nes", MenuPath: "NES/Action/Metroid.nes"},
 		{SystemId: "NES", Name: "Contra", Ext: "nes", MenuPath: "NES/Action/Contra.nes"},
 	}
-	tree := BuildTree(files)
+	tree := BuildTree(files, nil)
 	nes := tree.Children["NES"]
 	if len(nes.Files) != 1 || nes.Files[0] != &files[0] {
 		t.Fatalf("NES folder: %+v", nes.Files)

@@ -942,8 +942,8 @@ func startAttractInBackground(systems ...string) error {
 
 // buildTree builds the games tree, with each system folder named from its
 // current system name (so a renamed system never shows up as "Other").
-func buildTree(files []MenuFile) *gamesdb.Node {
-	tree := gamesdb.BuildTree(files)
+func buildTree(files []MenuFile, hidden []bool) *gamesdb.Node {
+	tree := gamesdb.BuildTree(files, hidden)
 	tree.RenameSystems(func(id string) string {
 		if sys, err := games.GetSystem(id); err == nil {
 			return sys.Name
