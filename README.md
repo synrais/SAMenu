@@ -367,6 +367,8 @@ Sequence = 10, a
 | `a b x y l r select start home up down left right` | Virtual pad buttons (MiSTer's default map) |
 | `key:enter`, `key:space`, `key:f1`… | Keyboard keys, for cores that read a keyboard |
 
+Keys are written as plain names, the same ones **Add a press** saves when you press a key: a single letter, number or symbol (`key:a`, `key:1`, `key:!`), or `enter`, `esc`, `space`, `tab`, `backspace`, `f1`…`f12`, `up` `down` `left` `right`, `home`, `end`, `pageup`, `pagedown`, `insert`, `delete`, `capslock`, `numlock`, `scrolllock`, `printscreen`, `pause`, `numpad0`…`numpad9`, `numpadenter`, `numpad+` `numpad-` `numpad*` `numpad/` `numpad.`, and `leftshift` `leftctrl` `leftalt` `leftgui` (and their `right` versions). Capitals don't matter.
+
 **Options → Controls → BIOS Skip** sets it all up from the menu:
 
 - **Used for:** Off, Attract (games attract mode launches), Menu (games you launch) or Both (`[BiosSkip] Attract` and `Menu`).

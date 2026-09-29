@@ -117,17 +117,11 @@ func LaunchGame(cfg *config.Config, system games.System, path string) error {
 		if err != nil {
 			return err
 		}
-		if ActiveGameEnabled() {
-			SetActiveGame(path)
-		}
 	default:
 		// Generic game file → build temporary MGL and launch
 		err := launchTempMgl(cfg, &system, path)
 		if err != nil {
 			return err
-		}
-		if ActiveGameEnabled() {
-			SetActiveGame(path)
 		}
 	}
 
@@ -162,37 +156,15 @@ func LaunchGenericFile(cfg *config.Config, path string) error {
 		}
 	}
 
-	var err error
-	isGame := false
-	ext := s.ToLower(filepath.Ext(path))
-
-	switch ext {
-	case ".mra":
-		err = launchFile(path)
-	case ".mgl":
-		err = launchFile(path)
-		isGame = true
-	case ".rbf":
-		err = launchFile(path)
+	switch ext := s.ToLower(filepath.Ext(path)); ext {
+	case ".mra", ".mgl", ".rbf":
+		return launchFile(path)
 	default:
 		if system.Id == "" {
 			return fmt.Errorf("unknown file type: %s", ext)
 		}
-		err = launchTempMgl(cfg, &system, path)
-		isGame = true
+		return launchTempMgl(cfg, &system, path)
 	}
-	if err != nil {
-		return err
-	}
-
-	// Track active game if applicable
-	if ActiveGameEnabled() && isGame {
-		if err := SetActiveGame(path); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // SetMute mutes or unmutes MiSTer's sound (its "volume mute" command).

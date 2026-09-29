@@ -71,30 +71,6 @@ func UpdateStartup(cfg *config.Config, exe string) error {
 	return os.Rename(tmp, config.StartupFile)
 }
 
-// OldSAMInStartup reports whether mrchrisster's MiSTer_SAM still starts
-// from user-startup.sh, which would fight a startup attract mode. It looks
-// for its script (MiSTer_SAM_on.sh) outside SAMenu's own block, so
-// SAMenu's folder (.MiSTer_SAMenu) never counts.
-func OldSAMInStartup() bool {
-	data, err := os.ReadFile(config.StartupFile)
-	if err != nil {
-		return false
-	}
-	inOurs := false
-	for _, line := range strings.Split(string(data), "\n") {
-		l := strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(l, "# BEGIN SAMenu"):
-			inOurs = true
-		case l == startupEnd:
-			inOurs = false
-		case !inOurs && !strings.HasPrefix(l, "#") && strings.Contains(l, "MiSTer_SAM_on"):
-			return true
-		}
-	}
-	return false
-}
-
 // WaitForMiSTer waits (up to 2 minutes) until MiSTer's main program is
 // running with the menu core loaded, as at the end of a boot.
 func WaitForMiSTer() error {

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/synrais/SAMenu/pkg/input/virtualinput"
 )
 
 func desc(t *testing.T, s string) []byte {
@@ -333,5 +335,36 @@ func TestGate(t *testing.T) {
 	}
 	if g.waiting() != nil {
 		t.Fatal("resumed, but still waiting")
+	}
+}
+
+func TestKeyNamesCanBePressed(t *testing.T) {
+	// Every key the detector names can be pressed by the virtual keyboard
+	// (so the BIOS skip editor can record it), except system keys.
+	system := map[string]bool{"brightnessdown": true, "brightnessup": true, "displaytoggle": true,
+		"screenlock": true, "systempower": true, "systemsleep": true, "systemwake": true}
+	for usage, name := range keyNames {
+		if system[name] {
+			continue
+		}
+		if _, ok := virtualinput.ToKeyboardCode(name); !ok {
+			t.Errorf("key 0x%02x %q can't be pressed", usage, name)
+		}
+	}
+	if keyName(0x31) != `\` {
+		t.Errorf("backslash reads as %q", keyName(0x31))
+	}
+	// The names README.md and SAMenu.ini list for BIOS skip sequences.
+	documented := strings.Fields(`a 1 ! enter ENTER esc space tab backspace f1 f9 f12 up down left right
+		home end pageup pagedown insert delete capslock numlock scrolllock printscreen pause
+		numpad0 numpad5 numpad9 numpadenter numpad+ numpad- numpad* numpad/ numpad.
+		leftshift leftctrl leftalt leftgui rightshift rightctrl rightalt rightgui`)
+	for _, n := range documented {
+		if _, ok := virtualinput.ToKeyboardCode(n); !ok {
+			t.Errorf("%q not found", n)
+		}
+	}
+	if _, ok := virtualinput.ToKeyboardCode("{f9}"); ok {
+		t.Error("braces still accepted")
 	}
 }

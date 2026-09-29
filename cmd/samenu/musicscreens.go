@@ -143,13 +143,13 @@ func startupScreen(stdscr *gc.Window, cfg *config.Config) {
 			st.Start, st.Music, st.AttractWhen = start.value(), musicOn.isOn(), when.value()
 			st.AttractDelay, st.AttractPress = delaySecs[delay.index], press.value()
 			st.IdleTime, st.IdleWhere = idleMinutes(idle), where.value()
-			return saveStartup(stdscr, cfg)
+			return saveStartup(cfg)
 		},
 	})
 }
 
 // saveStartup saves [Startup] and updates user-startup.sh to match.
-func saveStartup(stdscr *gc.Window, cfg *config.Config) error {
+func saveStartup(cfg *config.Config) error {
 	if err := config.SaveValues(cfg.Path, "Startup", [][2]string{
 		{"Start", cfg.Startup.Start}, {"Music", strconv.FormatBool(cfg.Startup.Music)},
 		{"AttractWhen", cfg.Startup.AttractWhen},
@@ -165,9 +165,6 @@ func saveStartup(stdscr *gc.Window, cfg *config.Config) error {
 	ensureIdleWatcher(cfg)
 	if err := mister.UpdateStartup(cfg, exe); err != nil {
 		return err
-	}
-	if cfg.Startup.Start == "Attract mode" && mister.OldSAMInStartup() {
-		message(stdscr, "The old MiSTer_SAM also starts from user-startup.sh.\nRemove its line, or both will run at boot.")
 	}
 	return nil
 }

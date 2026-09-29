@@ -35,7 +35,11 @@ func init() {
 		if err != nil || v > 0xA4 {
 			continue
 		}
-		keyNames[uint16(v)] = cleanName(m[2])
+		name := m[2]
+		if u, err := strconv.Unquote(`"` + name + `"`); err == nil {
+			name = u // "\\" in the file is one backslash
+		}
+		keyNames[uint16(v)] = cleanName(name)
 	}
 }
 
