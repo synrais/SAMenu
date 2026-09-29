@@ -99,9 +99,8 @@ func BuildTree(files []FileInfo, hidden []bool) *Node {
 			continue
 		}
 		f := &files[i]
-		parts := strings.Split(f.MenuPath, "/")
 		curr := root
-		for _, part := range parts[:len(parts)-1] {
+		for _, part := range menuFolders(f.MenuDir) {
 			child := curr.Children[part]
 			if child == nil {
 				child = newNode(part)
@@ -125,6 +124,15 @@ func (n *Node) SortedFolders() []string {
 		return utils.LessFold(names[i], names[j])
 	})
 	return names
+}
+
+// menuFolders splits a menu folder into its parts ("SNES/RPG" ->
+// "SNES", "RPG"); none for "".
+func menuFolders(dir string) []string {
+	if dir == "" {
+		return nil
+	}
+	return strings.Split(dir, "/")
 }
 
 func newNode(name string) *Node {

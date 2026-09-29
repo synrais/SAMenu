@@ -648,6 +648,7 @@ func filterSystems(files []gamesdb.FileInfo, cfg *config.Config) []gamesdb.FileI
 	for n, i := range kept {
 		out[n] = files[i]
 	}
+	gamesdb.KeepOwnText(out) // so the whole database's text can go
 	fmt.Printf("[Timing] filter %.1fs, %s games kept of %s: %s\n", time.Since(start).Seconds(),
 		commas(len(out)), commas(total), strings.Join(parts, ", "))
 	return out

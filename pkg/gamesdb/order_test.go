@@ -76,9 +76,9 @@ func TestNaturalCompareUnchanged(t *testing.T) {
 func TestEntriesKept(t *testing.T) {
 	var files []FileInfo
 	for _, n := range []string{"Game 10", "Game 2", "The Zelda", "Aladdin", "FF7 (Disc 1)", "FF7 (Disc 2)"} {
-		files = append(files, FileInfo{SystemId: "PSX", Name: n, Ext: "chd", MenuPath: "PSX/" + n + ".chd"})
+		files = append(files, FileInfo{SystemId: "PSX", Name: n, Ext: "chd", MenuDir: "PSX"})
 	}
-	files = append(files, FileInfo{SystemId: "PSX", Name: "x", Ext: "chd", MenuPath: "PSX/Sub/x.chd"})
+	files = append(files, FileInfo{SystemId: "PSX", Name: "x", Ext: "chd", MenuDir: "PSX/Sub"})
 	psx := BuildTree(files, nil).Children["PSX"]
 	orders := []GameOrder{{}, {Natural: true}, {IgnoreThe: true}, {GroupDiscs: true}, {Natural: true, GroupDiscs: true}}
 	for round := 0; round < 2; round++ {

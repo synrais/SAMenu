@@ -9,12 +9,12 @@ import (
 func TestShareStrings(t *testing.T) {
 	files := []FileInfo{
 		{SystemId: "SNES", Name: "Chrono Trigger (USA)", Ext: "sfc", Path: "/media/fat/games/SNES/RPG/Chrono Trigger (USA).sfc",
-			MenuPath: "SNES/RPG/Chrono Trigger (USA).sfc", Genres: []string{"RPG"}},
+			MenuDir: "SNES/RPG", Genres: []string{"RPG"}},
 		{SystemId: "SNES", Name: "Secret of Mana (USA)", Ext: "sfc", Path: "/media/fat/games/SNES/RPG/Secret of Mana (USA).sfc",
-			MenuPath: "SNES/RPG/Secret of Mana (USA).sfc", Genres: []string{"RPG"}},
+			MenuDir: "SNES/RPG", Genres: []string{"RPG"}},
 		// Inside a zip, no extension, and a name that isn't the path's end:
 		// all must come through unchanged.
-		{SystemId: "NES", Name: "Tetris", Ext: "nes", Path: "/media/fat/games/NES/All.zip/Tetris.nes", MenuPath: "NES/Tetris.nes"},
+		{SystemId: "NES", Name: "Tetris", Ext: "nes", Path: "/media/fat/games/NES/All.zip/Tetris.nes", MenuDir: "NES"},
 		{SystemId: "Amiga", Name: "Game", Ext: "", Path: "/media/fat/games/Amiga/Game"},
 		{SystemId: "Amiga", Name: "Listed", Ext: "ags", Path: "/media/fat/games/Amiga/games.txt"},
 		{SystemId: "X", Name: "a", Ext: "b", Path: "b"}, // shorter than its name: left alone
@@ -51,9 +51,9 @@ func dataOf(s string) uintptr { return (*reflect.StringHeader)(unsafe.Pointer(&s
 
 func TestBuildTreePointsAtEachGame(t *testing.T) {
 	files := []FileInfo{
-		{SystemId: "NES", Name: "Zelda", Ext: "nes", MenuPath: "NES/Zelda.nes"},
-		{SystemId: "NES", Name: "Metroid", Ext: "nes", MenuPath: "NES/Action/Metroid.nes"},
-		{SystemId: "NES", Name: "Contra", Ext: "nes", MenuPath: "NES/Action/Contra.nes"},
+		{SystemId: "NES", Name: "Zelda", Ext: "nes", MenuDir: "NES"},
+		{SystemId: "NES", Name: "Metroid", Ext: "nes", MenuDir: "NES/Action"},
+		{SystemId: "NES", Name: "Contra", Ext: "nes", MenuDir: "NES/Action"},
 	}
 	tree := BuildTree(files, nil)
 	nes := tree.Children["NES"]

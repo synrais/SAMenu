@@ -1,7 +1,7 @@
 package gamesdb
 
 import (
-	"encoding/gob"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -24,13 +24,25 @@ type FileInfo struct {
 	Name     string
 	Ext      string
 	Path     string
-	MenuPath string
+	// MenuDir is the menu folder the game is in, e.g. "SNES/RPG" (the
+	// system's name, then its folders). Games in the same folder share
+	// it; MenuPath adds the file name.
+	MenuDir string
 	// Rotation, for arcade MRAs: "horizontal", "vertical cw",
 	// "vertical ccw", "vertical" (direction not stated) or "" (unknown).
 	Rotation string
 	// Genres, from the folders the game is in (see genres.go), e.g.
 	// ["Sports", "Sports/Golf"].
 	Genres []string
+}
+
+// MenuPath is the game's place in the menu, e.g.
+// "SNES/RPG/Chrono Trigger.sfc": its menu folder, then its file name.
+func (f FileInfo) MenuPath() string {
+	if f.MenuDir == "" {
+		return f.FileName()
+	}
+	return f.MenuDir + "/" + f.FileName()
 }
 
 // ListKey is the game's name as the game lists (Blacklist, Staticlist,
@@ -87,23 +99,32 @@ func ForgetCache() {
 }
 
 func loadAll() ([]FileInfo, error) {
-	// If we've already loaded the Gob file once, return the cached version instantly.
+	// Read once, then kept (see Load).
 	if cacheLoaded {
 		return cachedFiles, nil
 	}
 
-	f, err := os.Open(config.MenuDb)
+	data, err := os.ReadFile(config.MenuDb)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
 	var files []FileInfo
-	dec := gob.NewDecoder(f)
-	if err := dec.Decode(&files); err != nil {
-		return nil, err
+	if bytes.HasPrefix(data, []byte(dbMagic)) {
+		if files, err = readDB(data); err != nil {
+			return nil, err
+		}
+	} else {
+		// An older games.db: read it, and save it in the new format so
+		// it loads fast from now on (unless a build is running, which
+		// writes one itself). Not saving it just means trying next time.
+		if files, err = readLegacyDB(data); err != nil {
+			return nil, err
+		}
+		if unlock, ok := tryLockBuild(); ok {
+			_ = saveAll(files)
+			unlock()
+		}
 	}
-	shareStrings(files)
 
 	cachedFiles = files
 	cacheLoaded = true
@@ -134,6 +155,7 @@ func shareStrings(files []FileInfo) {
 	for i := range files {
 		f := &files[i]
 		f.SystemId = share(f.SystemId)
+		f.MenuDir = share(f.MenuDir)
 		f.Ext = share(f.Ext)
 		f.Rotation = share(f.Rotation)
 		// The name is the end of the path: "<name>.<ext>" (or "<name>").
@@ -175,7 +197,7 @@ func saveAll(files []FileInfo) error {
 	if err != nil {
 		return err
 	}
-	if err := gob.NewEncoder(f).Encode(files); err != nil {
+	if err := writeDB(f, files); err != nil {
 		f.Close()
 		_ = os.Remove(tmp)
 		return err
@@ -212,6 +234,23 @@ func lockBuild(waiting func()) (unlock func(), waited bool) {
 		_ = syscall.Flock(fd, syscall.LOCK_UN)
 		f.Close()
 	}, waited
+}
+
+// tryLockBuild takes the build lock only if nobody has it.
+func tryLockBuild() (unlock func(), ok bool) {
+	f, err := os.OpenFile(buildLockFile, os.O_CREATE|os.O_RDWR, 0666)
+	if err != nil {
+		return nil, false
+	}
+	fd := int(f.Fd())
+	if syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB) != nil {
+		f.Close()
+		return nil, false
+	}
+	return func() {
+		_ = syscall.Flock(fd, syscall.LOCK_UN)
+		f.Close()
+	}, true
 }
 
 // -------------------------
@@ -280,6 +319,7 @@ func NewNamesIndex(cfg *config.Config, systems []games.System, update func(Index
 // holds them.
 func scanSystem(finder *games.SystemPathFinder, genres *GenreFinder, sys games.System, rules RuleSet) ([]FileInfo, error) {
 	var out []FileInfo
+	menuDirs := map[string]string{} // one shared copy of each menu folder
 	for _, sp := range finder.Paths(sys) {
 		pathFiles, err := games.GetFiles(sys.Id, sp.Path)
 		if err != nil {
@@ -290,12 +330,22 @@ func scanSystem(finder *games.SystemPathFinder, genres *GenreFinder, sys games.S
 			ext := strings.TrimPrefix(filepath.Ext(base), ".")
 			name := strings.TrimSuffix(base, filepath.Ext(base))
 			menuPath := menuPathFor(sys, sp.Path, fullPath)
+			menuDir := ""
+			if i := strings.LastIndexByte(menuPath, '/'); i >= 0 {
+				menuDir = menuPath[:i]
+				if shared, ok := menuDirs[menuDir]; ok {
+					menuDir = shared
+				} else {
+					menuDir = string([]byte(menuDir)) // not part of this game's path text
+					menuDirs[menuDir] = menuDir
+				}
+			}
 			file := FileInfo{
 				SystemId: sys.Id,
 				Name:     name,
 				Ext:      ext,
 				Path:     fullPath,
-				MenuPath: menuPath,
+				MenuDir:  menuDir,
 			}
 			if rules.Excludes(file) {
 				continue

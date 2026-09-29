@@ -68,11 +68,11 @@ func (rs RuleSet) Excludes(f FileInfo) bool {
 	}
 
 	// Folders match the folder names inside the system, as the menu shows
-	// them (the MenuPath minus the system name and the file).
+	// them (the menu folder minus the system name).
 	if len(rules.Folders) > 0 {
-		parts := strings.Split(f.MenuPath, "/")
-		if len(parts) > 2 {
-			for _, folder := range parts[1 : len(parts)-1] {
+		parts := menuFolders(f.MenuDir)
+		if len(parts) > 1 {
+			for _, folder := range parts[1:] {
 				for _, pattern := range rules.Folders {
 					if matchPattern(pattern, folder) {
 						return true
@@ -139,10 +139,10 @@ func MatchesAny(patterns []string, f FileInfo) bool {
 		return false
 	}
 	full := f.FileName()
-	parts := strings.Split(strings.ReplaceAll(f.MenuPath, "\\", "/"), "/")
+	parts := menuFolders(strings.ReplaceAll(f.MenuDir, "\\", "/"))
 	var folders []string
-	if len(parts) > 2 {
-		folders = parts[1 : len(parts)-1]
+	if len(parts) > 1 {
+		folders = parts[1:]
 	}
 	for _, p := range patterns {
 		if matchPattern(p, f.Name) || matchPattern(p, full) {

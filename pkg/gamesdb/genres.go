@@ -227,14 +227,16 @@ func (f FileInfo) InPick(pick string) bool {
 // has a custom genre, so on the MiSTer that matters.
 func (f FileInfo) containsWord(pattern string) bool {
 	word := strings.ToLower(pattern[1 : len(pattern)-1]) // spaces kept, as the general matcher does
-	if word == "" || f.MenuPath == "" || strings.Contains(word, "/") {
+	if word == "" || strings.Contains(word, "/") {
 		return MatchesAny([]string{pattern}, f) // unusual: the general way
 	}
-	path := f.MenuPath
-	if i := strings.IndexByte(path, '/'); i >= 0 {
-		path = path[i+1:] // not the system's own name
+	// The folders after the system's own name, then the file name: the
+	// word has no "/", so it can't match across the two.
+	dir := ""
+	if i := strings.IndexByte(f.MenuDir, '/'); i >= 0 {
+		dir = f.MenuDir[i+1:]
 	}
-	return containsFold(path, word)
+	return containsFold(dir, word) || containsFold(f.FileName(), word)
 }
 
 // containsFold reports whether s contains the lowercase word, ignoring
