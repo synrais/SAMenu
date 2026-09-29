@@ -188,8 +188,6 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 		showSelected()
 	}
 
-	// non-blocking input with 100ms tick
-	win.Timeout(100)
 	var ch gc.Key
 
 	for {
@@ -213,6 +211,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			textWidth--
 		}
 
+		bouncing := false // the highlighted line is too long, so it moves
 		for i := 0; i < max; i++ {
 			item := items[viewStart+i]
 			display := item
@@ -225,6 +224,7 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 			scrolling := len(item) > textWidth
 			if scrolling {
 				if selected {
+					bouncing = true
 					offset := BounceOffset(len(item), textWidth, time.Since(selectedAt))
 					display = cutBytes(item, offset, offset+textWidth)
 				} else {
@@ -316,7 +316,14 @@ func ListPicker(stdscr *gc.Window, opts ListPickerOpts, items []string) (int, in
 		win.NoutRefresh()
 		gc.Update()
 
-		// Wait for a key, or the 100ms tick (for the scrolling title).
+		// Wait for a key. Only a highlighted line that's moving needs
+		// drawing again without one (every 100 ms); otherwise the list
+		// just waits, using no CPU while it sits on screen.
+		if bouncing {
+			win.Timeout(100)
+		} else {
+			win.Timeout(-1)
+		}
 		ch = readKey(win)
 
 		// Esc (B) and Backspace always press Back, where there is one. Where
