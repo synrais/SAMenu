@@ -51,7 +51,7 @@ func ensureIdleWatcher(cfg *config.Config) {
 		cmd := exec.Command(exe, "-idlewatch")
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 		if cmd.Start() == nil {
-			_ = cmd.Process.Release()
+			go func() { _ = cmd.Wait() }() // no zombie if it's stopped while this runs
 		}
 	case !cfg.IdleWatch() && running:
 		if b, err := os.ReadFile(idlePidFile); err == nil {
@@ -76,8 +76,11 @@ func runIdleWatcher() {
 	stickRules()
 	// The detectors sleep while nothing is being counted (below): attract
 	// mode has its own, and anything they'd see then is ignored anyway.
+	// Controllers are read every 100 ms, not 25: this only needs to know
+	// someone is there, and it runs the whole time the MiSTer is on.
 	gate := &input.Gate{}
-	events := input.Start(input.Options{Keyboard: true, Mouse: true, Joystick: true, Quiet: true, Gate: gate})
+	events := input.Start(input.Options{Keyboard: true, Mouse: true, Joystick: true, Quiet: true, Gate: gate,
+		JoystickEvery: 100 * time.Millisecond})
 	cfg := mustConfig()
 	lastInput, lastLoad := time.Now(), time.Now()
 	tick := time.NewTicker(time.Second)

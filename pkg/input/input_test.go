@@ -222,6 +222,62 @@ func TestJoystickPoll(t *testing.T) {
 	}
 }
 
+// The kernel's default correction (joydev_connect) for an axis, and
+// what js* reports for event device values through it.
+func TestJsCorrect(t *testing.T) {
+	def := func(min, max, flat int32) jsCorr {
+		c := jsCorr{typ: 1}
+		mid := (max + min) / 2
+		c.coef[0], c.coef[1] = mid-flat, mid+flat
+		if half := (max-min)/2 - flat; half != 0 {
+			c.coef[2], c.coef[3] = (1<<29)/half, (1<<29)/half
+		}
+		return c
+	}
+	for _, x := range []struct {
+		name string
+		c    jsCorr
+		in   int32
+		want int16
+	}{
+		{"8-bit stick left", def(0, 255, 15), 0, -32767},
+		{"8-bit stick centre", def(0, 255, 15), 127, 0},
+		{"8-bit stick in the dead zone", def(0, 255, 15), 140, 0},
+		{"8-bit stick right", def(0, 255, 15), 255, 32767},
+		{"8-bit stick halfway", def(0, 255, 0), 191, 16513},
+		{"d-pad up", def(-1, 1, 0), -1, -32767},
+		{"d-pad centre", def(-1, 1, 0), 0, 0},
+		{"d-pad down", def(-1, 1, 0), 1, 32767},
+		{"16-bit stick", def(-32768, 32767, 128), -20000, -19950},
+		{"no correction", jsCorr{typ: 0}, -40000, -32767},
+		{"unknown correction", jsCorr{typ: 2}, 500, 0},
+	} {
+		if got := x.c.correct(x.in); got != x.want {
+			t.Errorf("%s: %d gave %d, want %d", x.name, x.in, got, x.want)
+		}
+	}
+}
+
+func TestStickHoldReads(t *testing.T) {
+	defer SetStickRules(true, 75)
+	for _, x := range []struct {
+		holdMs int
+		every  time.Duration
+		want   int
+	}{
+		{75, 25 * time.Millisecond, 3},
+		{75, 100 * time.Millisecond, 1},
+		{150, 100 * time.Millisecond, 2},
+		{75, 0, 3},
+		{0, 25 * time.Millisecond, 1},
+	} {
+		SetStickRules(true, x.holdMs)
+		if got := stickHoldReads(x.every); got != x.want {
+			t.Errorf("%d ms every %v: %d reads, want %d", x.holdMs, x.every, got, x.want)
+		}
+	}
+}
+
 func TestAxisHints(t *testing.T) {
 	for _, c := range []struct {
 		name string

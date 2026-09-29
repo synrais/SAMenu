@@ -930,7 +930,14 @@ func startAttractInBackground(systems ...string) error {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%d", afterMenuEnv, os.Getpid()))
 	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	// Collect its exit when it ends: the idle watcher lives on, and each
+	// attract session it started would otherwise stay in the process list
+	// as a zombie.
+	go func() { _ = cmd.Wait() }()
+	return nil
 }
 
 // buildTree builds the games tree, with each system folder named from its

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"golang.org/x/sys/unix"
 
@@ -151,9 +152,45 @@ func (m *motionTracker) reset() {
 	}
 }
 
-// cellOf returns the grid cell for a pixel on a width x height screen.
-func cellOf(x, y, width, height int) uint16 {
-	return uint16((y*gridRows/height)*gridCols + x*gridCols/width)
+// A pixel at x, y on a width x height screen is in grid cell
+// (y*gridRows/height)*gridCols + x*gridCols/width.
+//
+// columnCells holds the x part of that for each sampled x, worked out
+// once for a screen width, step and offset instead of for every pixel of
+// every frame: the MiSTer's ARM has no divide instruction, so each
+// division is slow. The y part is worked out once per row.
+type columnCells struct {
+	width, step, ox int
+	cells           []uint16
+}
+
+func (c *columnCells) get(width, step, ox int) []uint16 {
+	if c.width != width || c.step != step || c.ox != ox || c.cells == nil {
+		c.width, c.step, c.ox = width, step, ox
+		c.cells = c.cells[:0]
+		for x := ox; x < width; x += step {
+			c.cells = append(c.cells, uint16(x*gridCols/width))
+		}
+	}
+	return c.cells
+}
+
+// pixelAt reads the pixel (3 bytes: red, green, blue) at m[i:] with whole,
+// aligned 32-bit reads: one when the pixel sits inside one word, two when
+// it spans two. The video memory is uncached, so every read is a slow
+// trip to memory, and three byte reads cost about twice as much. (The
+// reads must be aligned: uncached memory can't take any others.) m must
+// start on a 4-byte boundary and be a multiple of 4 bytes long, as an
+// mmap is.
+func pixelAt(m []byte, i int) (r, g, b byte) {
+	_ = m[i+2]
+	a := i &^ 3
+	shift := uint(i-a) * 8
+	w := *(*uint32)(unsafe.Pointer(&m[a])) >> shift
+	if shift > 8 { // the pixel runs into the next word
+		w |= *(*uint32)(unsafe.Pointer(&m[a+4])) << (32 - shift)
+	}
+	return byte(w), byte(w >> 8), byte(w >> 16)
 }
 
 func (m *motionTracker) mark(cell uint16, now float64) {
@@ -398,6 +435,7 @@ func (d *Detector) run() {
 	var havePrev [4]bool
 	currRGB := make([]uint32, 0, 1024)
 	currCell := make([]uint16, 0, 1024) // grid cell of each sample
+	var colCells [4]columnCells         // each grid offset's sampled columns
 	var motion motionTracker
 	motion.reset()
 	sorted := make([]uint32, 0, 1024) // copy for the dominant colour
@@ -450,16 +488,16 @@ func (d *Detector) run() {
 		if !valid {
 			currRGB = append(currRGB, 0)
 		} else {
+			cols := colCells[slot].get(res.Width, step, ox)
 			for y := oy; y < res.Height; y += step {
-				row := res.Map[res.Header+y*res.Line:]
-				for x := ox; x < res.Width; x += step {
+				row := res.Header + y*res.Line
+				rowCell := uint16((y * gridRows / res.Height) * gridCols)
+				for xi, x := 0, ox; x < res.Width; xi, x = xi+1, x+step {
 					off := x * 3
 					if off+2 < res.Line {
-						r := row[off]
-						g := row[off+1]
-						b := row[off+2]
+						r, g, b := pixelAt(res.Map, row+off)
 						currRGB = append(currRGB, uint32(r)<<16|uint32(g)<<8|uint32(b))
-						currCell = append(currCell, cellOf(x, y, res.Width, res.Height))
+						currCell = append(currCell, rowCell+cols[xi])
 						sumR += int(r)
 						sumG += int(g)
 						sumB += int(b)

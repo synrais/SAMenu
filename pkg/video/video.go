@@ -341,7 +341,7 @@ func Start(exe, target string) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	_ = cmd.Process.Release()
+	go func() { _ = cmd.Wait() }() // no zombie if it stops while this runs
 	for i := 0; i < 30 && !Running(); i++ {
 		time.Sleep(100 * time.Millisecond)
 	}

@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Input detection
@@ -18,8 +19,8 @@ import (
 // detector works around that:
 //   - keyboards and mice are read as raw HID data (hidraw), which the
 //     grab doesn't affect
-//   - controllers are read by reopening the joystick device each poll,
-//     which makes the kernel report its live state even while grabbed
+//   - controllers are polled, asking the kernel for their live state,
+//     which it knows even while they're grabbed (see joystick.go)
 
 // Event is one detected press.
 type Event struct {
@@ -47,6 +48,10 @@ type Options struct {
 	Mouse    bool
 	Joystick bool
 	Quiet    bool // don't print devices being found or lost
+	// JoystickEvery is how often controllers are read: 0 for the usual
+	// 25 ms. Something that only needs to know a controller was used at
+	// all (the idle watcher) can read them less often and cost less.
+	JoystickEvery time.Duration
 	// Gate, if set, can pause these detectors (see Gate).
 	Gate *Gate
 }
@@ -104,7 +109,7 @@ func Start(opts Options) <-chan Event {
 		go watchHID(out, opts.Keyboard, opts.Mouse, opts.Gate)
 	}
 	if opts.Joystick {
-		go watchJoysticks(out, opts.Gate)
+		go watchJoysticks(out, opts.Gate, opts.JoystickEvery)
 	}
 	return out
 }

@@ -19,11 +19,17 @@ import (
 
 // Controllers
 //
-// MiSTer holds controllers exclusively while a core runs, so a joystick
-// device that stays open never receives events. But each time one is
-// opened, the kernel reports its *live* state (every button and axis), so
-// the detector reopens each controller every poll and compares that
-// state with the last one.
+// MiSTer holds controllers exclusively while a core runs, so a device that
+// stays open never receives events. But the kernel keeps every
+// controller's *live* state (every button and axis), and says what it is
+// when asked. So each poll asks, and compares the answer with the last.
+//
+// It asks the controller's event device (/dev/input/event*), kept open,
+// with ioctls: its buttons in one call, and one more for each axis. Axis
+// values are corrected the way the joystick device (js*) does it, so they
+// read exactly as js* reports them. A controller with no event device is
+// read by reopening js* each poll instead (opening it reports the live
+// state), which costs more than twice as much.
 
 const (
 	jsPollEvery   = 25 * time.Millisecond
@@ -127,7 +133,35 @@ const (
 	jsIOCGAXES    = 0x80016a11
 	jsIOCGBUTTONS = 0x80016a12
 	jsIOCGAXMAP   = 0x80406a32 // 64 bytes: the ABS code of each axis
+	jsIOCGBTNMAP  = 0x84006a34 // 1024 bytes: the key code of each button (uint16s)
+	jsIOCGCORR    = 0x80246a22 // each axis's correction, jsCorrSize bytes each
+	jsCorrSize    = 36         // struct js_corr: 8 int32 coefficients, int16 prec, uint16 type
 )
+
+// Event device ioctls (see linux/input.h).
+const (
+	evIOCGKEY    = 0x80604518 // keyBytes: a bit for each key or button, set while down
+	evIOCGABS    = 0x80184540 // + ABS code: absInfoBytes, the axis's value first (int32)
+	keyBytes     = 96
+	absInfoBytes = 24
+)
+
+// openRetry opens a device, trying again when the open is interrupted.
+// While a core loads, the kernel can keep an open waiting, and Go's own
+// scheduler signal then interrupts it (EINTR). That's not the device
+// going away.
+func openRetry(path string) (int, error) {
+	for tries := 1; ; tries++ {
+		fd, err := unix.Open(path, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+		if err != unix.EINTR || tries == 5 {
+			return fd, err
+		}
+	}
+}
+
+func le32(b []byte) int32 {
+	return int32(uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24)
+}
 
 func ioctlBytes(fd int, req uintptr, buf []byte) error {
 	_, _, e := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), req, uintptr(unsafe.Pointer(&buf[0])))
@@ -299,6 +333,123 @@ type jsDevice struct {
 	spareBtn  []bool
 	spareAxis []int8
 	spareVals []int16
+
+	every time.Duration // how often it's polled (for the stick hold)
+	ev    *evReader     // its event device, or nil to reopen js* each poll
+}
+
+// evReader reads a controller's live state from its event device.
+type evReader struct {
+	fd      int
+	keys    []uint16 // key code of each button
+	corr    []jsCorr // the joystick device's correction of each axis
+	keyBits []byte   // EVIOCGKEY's answer
+	absInfo []byte   // EVIOCGABS's answer
+}
+
+// jsCorr is the joystick device's correction for an axis (struct js_corr).
+type jsCorr struct {
+	coef [4]int32 // the first 4 of its 8 (the rest are unused)
+	typ  uint16   // 0 none, 1 "broken line" (the kernel's default)
+}
+
+// correct turns an event device axis value into the one the joystick
+// device reports (joydev_correct in the kernel, int32 sums and all).
+func (c jsCorr) correct(v int32) int16 {
+	switch c.typ {
+	case 0:
+	case 1:
+		switch {
+		case v <= c.coef[0]:
+			v = (c.coef[2] * (v - c.coef[0])) >> 14
+		case v < c.coef[1]:
+			v = 0
+		default:
+			v = (c.coef[3] * (v - c.coef[1])) >> 14
+		}
+	default:
+		return 0
+	}
+	if v < -32767 {
+		v = -32767
+	} else if v > 32767 {
+		v = 32767
+	}
+	return int16(v)
+}
+
+// openEvReader opens the event device belonging to the joystick device
+// open as fd, with what it needs to read it as the joystick device would.
+// nil if there isn't one or it can't be read.
+func openEvReader(jsPath string, fd, buttons, axes int) *evReader {
+	nodes, _ := filepath.Glob(filepath.Join("/sys/class/input", filepath.Base(jsPath), "device", "event*"))
+	if len(nodes) != 1 {
+		return nil
+	}
+	btnMap := make([]byte, 1024)
+	if ioctlBytes(fd, jsIOCGBTNMAP, btnMap) != nil || 2*buttons > len(btnMap) {
+		return nil
+	}
+	r := &evReader{keyBits: make([]byte, keyBytes), absInfo: make([]byte, absInfoBytes)}
+	for i := 0; i < buttons; i++ {
+		code := uint16(btnMap[2*i]) | uint16(btnMap[2*i+1])<<8
+		if int(code)/8 >= keyBytes {
+			return nil
+		}
+		r.keys = append(r.keys, code)
+	}
+	if axes > 0 {
+		raw := make([]byte, jsCorrSize*axes)
+		if ioctlBytes(fd, jsIOCGCORR, raw) != nil {
+			return nil
+		}
+		for i := 0; i < axes; i++ {
+			b := raw[i*jsCorrSize:]
+			var c jsCorr
+			for k := range c.coef {
+				c.coef[k] = le32(b[4*k:])
+			}
+			c.typ = uint16(b[34]) | uint16(b[35])<<8
+			r.corr = append(r.corr, c)
+		}
+	}
+	evFd, err := openRetry(filepath.Join("/dev/input", filepath.Base(nodes[0])))
+	if err != nil {
+		return nil
+	}
+	r.fd = evFd
+	return r
+}
+
+// read fills btn and vals with the live state (codes: each axis's ABS
+// code).
+func (r *evReader) read(codes []byte, btn []bool, vals []int16) error {
+	if err := ioctlBytes(r.fd, evIOCGKEY, r.keyBits); err != nil {
+		return err
+	}
+	for i, code := range r.keys {
+		if i < len(btn) {
+			btn[i] = r.keyBits[code/8]&(1<<(code%8)) != 0
+		}
+	}
+	for i, code := range codes {
+		if i >= len(vals) || i >= len(r.corr) {
+			break
+		}
+		if err := ioctlBytes(r.fd, evIOCGABS+uintptr(code), r.absInfo); err != nil {
+			return err
+		}
+		vals[i] = r.corr[i].correct(le32(r.absInfo))
+	}
+	return nil
+}
+
+// close lets go of the controller's event device, if it has one.
+func (d *jsDevice) close() {
+	if d.ev != nil {
+		_ = unix.Close(d.ev.fd)
+		d.ev = nil
+	}
 }
 
 // refill is from copied into spare, grown if it's too small.
@@ -328,12 +479,12 @@ func jsInfo(path string) (name string, bus, vid, pid, ver int) {
 	return name, readHex("bustype"), readHex("vendor"), readHex("product"), readHex("version")
 }
 
-func openJoystick(path string, sdl []*mappingEntry) (*jsDevice, error) {
+func openJoystick(path string, sdl []*mappingEntry, every time.Duration) (*jsDevice, error) {
 	name, bus, vid, pid, ver := jsInfo(path)
 	if name == virtualinput.DeviceName {
 		return nil, errSelf
 	}
-	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_NONBLOCK, 0)
+	fd, err := openRetry(path)
 	if err != nil {
 		return nil, err
 	}
@@ -371,6 +522,8 @@ func openJoystick(path string, sdl []*mappingEntry) (*jsDevice, error) {
 		run:     make([]int, axes),
 		vals:    make([]int16, axes),
 		codes:   append([]byte(nil), axMap[:axes]...),
+		every:   every,
+		ev:      openEvReader(path, fd, int(nBtn[0]), axes),
 	}
 	info := "raw names (btn0, axis0+)"
 	if mapName != "" {
@@ -396,58 +549,83 @@ var errSelf = fmt.Errorf("SAMenu's own virtual device")
 // before it does. A glitch (an adapter's empty port jumping to one end for
 // a read or two) then never counts. D-pads (hats) are always instant.
 var (
-	sticksOn       = true
-	stickHoldReads = 3
+	sticksOn    = true
+	stickHoldMs = 75
 )
 
 // SetStickRules sets the analog stick rules for the detectors.
 func SetStickRules(on bool, holdMs int) {
 	sticksOn = on
-	stickHoldReads = 1
-	if holdMs > 0 {
-		stickHoldReads = (holdMs + int(jsPollEvery/time.Millisecond) - 1) / int(jsPollEvery/time.Millisecond)
-	}
+	stickHoldMs = holdMs
 }
 
-func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
-	fd, err := unix.Open(d.path, unix.O_RDONLY|unix.O_NONBLOCK, 0)
-	if err != nil {
-		return err
+// stickHoldReads is how many reads in a row a stick must stay pushed, on
+// a controller read every so often: at least one.
+func stickHoldReads(every time.Duration) int {
+	if every <= 0 {
+		every = jsPollEvery
 	}
+	ms := int(every / time.Millisecond)
+	if stickHoldMs <= 0 || ms <= 0 {
+		return 1
+	}
+	return (stickHoldMs + ms - 1) / ms
+}
+
+// An error from poll means the controller is gone. A read that was only
+// interrupted (EINTR, while a core loads) is skipped as if it never
+// happened, and the next poll tries again.
+func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
 	// This read's state starts as the last one, in the spare copies (40
 	// reads a second: no new memory for each).
 	btn := refill(d.spareBtn, d.btn)
 	axis := refill(d.spareAxis, d.axis)
 	vals := refill(d.spareVals, d.vals)
-
-	for {
-		n, err := unix.Read(fd, buf)
-		if err != nil || n < 8 {
-			break
+	skip := func(err error) error {
+		d.spareBtn, d.spareAxis, d.spareVals = btn, axis, vals
+		if err == unix.EINTR {
+			return nil
 		}
-		for off := 0; off+8 <= n; off += 8 {
-			val := int16(uint16(buf[off+4]) | uint16(buf[off+5])<<8)
-			typ := buf[off+6] &^ 0x80 // drop the "initial state" flag
-			num := int(buf[off+7])
-			switch {
-			case typ == 1 && num < len(btn):
-				btn[num] = val != 0
-			case typ == 2 && num < len(axis):
-				if num < len(vals) {
-					vals[num] = val
-				}
+		return err
+	}
+
+	if d.ev != nil {
+		if err := d.ev.read(d.codes, btn, vals); err != nil {
+			return skip(err)
+		}
+		for i, val := range vals {
+			if i < len(axis) {
+				axis[i] = axisSide(val)
+			}
+		}
+	} else {
+		fd, err := openRetry(d.path)
+		if err != nil {
+			return skip(err)
+		}
+		for {
+			n, err := unix.Read(fd, buf)
+			if err != nil || n < 8 {
+				break
+			}
+			for off := 0; off+8 <= n; off += 8 {
+				val := int16(uint16(buf[off+4]) | uint16(buf[off+5])<<8)
+				typ := buf[off+6] &^ 0x80 // drop the "initial state" flag
+				num := int(buf[off+7])
 				switch {
-				case val <= -axisThreshold:
-					axis[num] = -1
-				case val >= axisThreshold:
-					axis[num] = 1
-				default:
-					axis[num] = 0
+				case typ == 1 && num < len(btn):
+					btn[num] = val != 0
+				case typ == 2 && num < len(axis):
+					if num < len(vals) {
+						vals[num] = val
+					}
+					axis[num] = axisSide(val)
 				}
 			}
 		}
+		_ = unix.Close(fd)
 	}
-	_ = unix.Close(fd)
+	holdReads := stickHoldReads(d.every)
 
 	if d.have {
 		for i, down := range btn {
@@ -465,7 +643,7 @@ func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
 			} else if i < len(d.run) {
 				// Debug view: a stick push that ended before the hold time
 				// was up didn't count; say so.
-				if debug && !hat && sticksOn && d.runSide[i] != 0 && d.runSide[i] != d.rest[i] && d.run[i] < stickHoldReads {
+				if debug && !hat && sticksOn && d.runSide[i] != 0 && d.runSide[i] != d.rest[i] && d.run[i] < holdReads {
 					d.sendAxis(out, i, d.runSide[i], "too short")
 				}
 				d.runSide[i], d.run[i] = raw, 1
@@ -478,7 +656,7 @@ func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
 				switch {
 				case !sticksOn:
 					side = 0 // sticks don't count
-				case i < len(d.run) && d.run[i] < stickHoldReads:
+				case i < len(d.run) && d.run[i] < holdReads:
 					side = d.axis[i] // not held long enough yet
 					if side != raw {
 						side = 0
@@ -515,6 +693,17 @@ func (d *jsDevice) poll(out chan<- Event, buf []byte) error {
 	return nil
 }
 
+// axisSide is the end an axis value is pushed to: -1, 0 or +1.
+func axisSide(val int16) int8 {
+	switch {
+	case val <= -axisThreshold:
+		return -1
+	case val >= axisThreshold:
+		return 1
+	}
+	return 0
+}
+
 // sendAxis reports an axis pushed to one end (side -1 or +1); ignored
 // says why it didn't count (debug view), or is empty.
 func (d *jsDevice) sendAxis(out chan<- Event, i int, side int8, ignored string) {
@@ -530,12 +719,21 @@ func (d *jsDevice) sendAxis(out chan<- Event, i int, side int8, ignored string) 
 		Hint: axisHint(name, code, side > 0), Ignored: ignored, Axis: true})
 }
 
-// watchJoysticks polls every controller and follows them being plugged
-// in and out.
-func watchJoysticks(out chan<- Event, gate *Gate) {
+// watchJoysticks polls every controller, every so often (jsPollEvery if
+// 0), and follows them being plugged in and out.
+func watchJoysticks(out chan<- Event, gate *Gate, every time.Duration) {
+	if every <= 0 {
+		every = jsPollEvery
+	}
 	sdl := loadSDLDB()
 	devices := map[string]*jsDevice{}
 	ignored := map[string]bool{} // SAMenu's own virtual pad
+	drop := func(p string, d *jsDevice) {
+		d.close()
+		unregister(p)
+		logf("- %s (%s)", d.name, filepath.Base(p))
+		delete(devices, p)
+	}
 
 	rescan := func() {
 		paths, _ := filepath.Glob("/dev/input/js*")
@@ -545,7 +743,7 @@ func watchJoysticks(out chan<- Event, gate *Gate) {
 			if devices[p] != nil || ignored[p] {
 				continue
 			}
-			d, err := openJoystick(p, sdl)
+			d, err := openJoystick(p, sdl, every)
 			if err == errSelf {
 				ignored[p] = true
 				continue
@@ -556,9 +754,7 @@ func watchJoysticks(out chan<- Event, gate *Gate) {
 		}
 		for p, d := range devices {
 			if !present[p] {
-				unregister(p)
-				logf("- %s (%s)", d.name, filepath.Base(p))
-				delete(devices, p)
+				drop(p, d)
 			}
 		}
 		for p := range ignored {
@@ -592,15 +788,13 @@ func watchJoysticks(out chan<- Event, gate *Gate) {
 	rescan()
 	lastScan := time.Now()
 	buf := make([]byte, 8*(256+64))
-	tick := time.NewTicker(jsPollEvery)
+	tick := time.NewTicker(every)
 	defer tick.Stop()
 
 	for range tick.C {
 		if wake := gate.waiting(); wake != nil {
 			for p, d := range devices {
-				unregister(p)
-				logf("- %s (%s)", d.name, filepath.Base(p))
-				delete(devices, p)
+				drop(p, d)
 			}
 			<-wake
 			lastScan = time.Time{} // find them again now
@@ -617,9 +811,7 @@ func watchJoysticks(out chan<- Event, gate *Gate) {
 		}
 		for p, d := range devices {
 			if err := d.poll(out, buf); err != nil {
-				unregister(p)
-				logf("- %s (%s)", d.name, filepath.Base(p))
-				delete(devices, p)
+				drop(p, d)
 			}
 		}
 	}
