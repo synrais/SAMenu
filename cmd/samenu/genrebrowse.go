@@ -36,31 +36,30 @@ var genresSystem, genresOrder = "Before", "Game name"
 var genresLeftOut = map[string]bool{}
 
 // buildGenreTree builds the [Genres] folder from the games.
+//
+// It goes through every game, so it's kept lean: games are looked at in
+// place (files isn't copied), and each one's original is kept by pointer.
 func buildGenreTree(files []MenuFile) *gamesdb.Node {
-	if len(genresLeftOut) > 0 {
-		kept := make([]MenuFile, 0, len(files))
-		for i := range files {
-			if !genresLeftOut[strings.ToLower(files[i].SystemId)] {
-				kept = append(kept, files[i])
-			}
-		}
-		files = kept
+	leftOut := func(f *MenuFile) bool {
+		return len(genresLeftOut) > 0 && genresLeftOut[strings.ToLower(f.SystemId)]
 	}
 	root := &gamesdb.Node{Name: "Genres", Children: map[string]*gamesdb.Node{}}
 	nameOf := games.DisplayName
 	// Systems in the systems list's order, for Order: System.
 	var names []string
 	seenSys := map[string]bool{}
-	for _, f := range files {
-		if len(f.Genres) > 0 && !seenSys[f.SystemId] {
+	for i := range files {
+		if f := &files[i]; len(f.Genres) > 0 && !leftOut(f) && !seenSys[f.SystemId] {
 			seenSys[f.SystemId] = true
 			names = append(names, nameOf(f.SystemId))
 		}
 	}
 	sortSystems(names)
-	rank := map[string]int{}
+	// Each system's place in that order, as sort key text ("0007"),
+	// worked out once per system rather than once per game.
+	rank := map[string]string{}
 	for i, n := range names {
-		rank[n] = i
+		rank[n] = fmt.Sprintf("%04d", i)
 	}
 
 	seen := map[*gamesdb.Node]map[string]bool{}
@@ -73,15 +72,16 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 		}
 		return n
 	}
-	add := func(n *gamesdb.Node, f MenuFile) {
+	add := func(n *gamesdb.Node, orig *MenuFile) {
 		// Once per system per folder, however many genre folders the same
 		// game sits in.
-		key := strings.ToLower(f.SystemId + "|" + f.Name + "." + f.Ext)
+		key := strings.ToLower(orig.SystemId + "|" + orig.Name + "." + orig.Ext)
 		if seen[n][key] {
 			return
 		}
 		seen[n][key] = true
-		keepOriginal(f)
+		keepOriginalRef(orig)
+		f := *orig // this folder's copy, named with its system
 		sys := nameOf(f.SystemId)
 		title := f.Name
 		switch genresSystem {
@@ -92,27 +92,32 @@ func buildGenreTree(files []MenuFile) *gamesdb.Node {
 			f.Name = "[" + sys + "] " + title
 		}
 		// Sort by title (the system settles ties), or by system then title.
-		sortKey := title + "\x00" + fmt.Sprintf("%04d", rank[sys])
+		sortKey := title + "\x00" + rank[sys]
 		if genresOrder == "System" {
-			sortKey = fmt.Sprintf("%04d", rank[sys]) + "\x00" + title
+			sortKey = rank[sys] + "\x00" + title
 		}
 		n.Files = append(n.Files, &f)
 		n.SortKeys = append(n.SortKeys, sortKey)
 	}
-	for _, f := range files {
-		if len(f.Genres) == 0 {
-			continue
-		}
-		hasSub := map[string]bool{}
-		for _, g := range f.Genres {
-			if p := gamesdb.GenreParent(g); p != "" {
-				hasSub[p] = true
+	// hasSub reports whether a game's genres include a sub-genre of g
+	// (then it goes in that sub-genre's folder, not g's own).
+	hasSub := func(genres []string, g string) bool {
+		for _, s := range genres {
+			if gamesdb.GenreParent(s) == g {
+				return true
 			}
+		}
+		return false
+	}
+	for i := range files {
+		f := &files[i]
+		if len(f.Genres) == 0 || leftOut(f) {
+			continue
 		}
 		for _, g := range f.Genres {
 			if p := gamesdb.GenreParent(g); p != "" {
 				add(folder(folder(root, p), g[len(p)+1:]), f)
-			} else if !hasSub[g] {
+			} else if !hasSub(f.Genres, g) {
 				add(folder(root, g), f)
 			}
 		}

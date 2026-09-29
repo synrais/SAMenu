@@ -288,13 +288,19 @@ func favouritesScreen(stdscr *gc.Window, cfg *config.Config) {
 // Virtual folders ([History], [Favourites], [Genre Collection]) show
 // games under changed names (a day, a system). originals keeps each one's
 // real entry by path, so recording or marking it uses the real game.
-var originals = map[string]MenuFile{}
+// They're kept by pointer: [Genre Collection] points at the database's
+// own entries rather than keeping another copy of every game.
+var originals = map[string]*MenuFile{}
 
-func keepOriginal(f MenuFile) { originals[f.Path] = f }
+// keepOriginal keeps a copy of f (History and Favourites: short lists).
+func keepOriginal(f MenuFile) { originals[f.Path] = &f }
+
+// keepOriginalRef keeps f itself, which must not change afterwards.
+func keepOriginalRef(f *MenuFile) { originals[f.Path] = f }
 
 func originalGame(f MenuFile) MenuFile {
 	if o, ok := originals[f.Path]; ok {
-		return o
+		return *o
 	}
 	return f
 }
