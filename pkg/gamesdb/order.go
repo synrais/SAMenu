@@ -49,10 +49,14 @@ func stripThe(s string) string {
 // naturalCompare compares ignoring case, with runs of digits compared by
 // their value. It returns -1, 0 or 1.
 func naturalCompare(a, b string) int {
-	a, b = strings.ToLower(a), strings.ToLower(b)
+	// Plain-letter names are lowercased a letter at a time (no copies:
+	// this runs for every comparison of a sort); others as a whole.
+	if !utils.IsASCII(a) || !utils.IsASCII(b) {
+		a, b = strings.ToLower(a), strings.ToLower(b)
+	}
 	i, j := 0, 0
 	for i < len(a) && j < len(b) {
-		ca, cb := a[i], b[j]
+		ca, cb := utils.LowerASCII(a[i]), utils.LowerASCII(b[j])
 		if isDigit(ca) && isDigit(cb) {
 			si, sj := i, j
 			for i < len(a) && isDigit(a[i]) {
