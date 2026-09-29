@@ -285,7 +285,7 @@ func browseNode(cfg *config.Config, stdscr *gc.Window, node *gamesdb.Node, depth
 				items = append(items, e.Folder)
 			} else {
 				hasGames = true
-				label := gameName(e.File.Name, e.File.Ext)
+				label := gameName(e.Name, e.File.Ext)
 				// Favourites get a mark (after sorting, so it doesn't move them).
 				if cfg.Menu.Favourites && !inFavourites && isFavourite(e.File.Path) {
 					label = favouriteMark + label

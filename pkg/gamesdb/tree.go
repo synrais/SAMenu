@@ -23,6 +23,11 @@ type Node struct {
 	// instead of by their names, e.g. the [Genres] folder, whose names
 	// carry the system: "[SNES] Street Fighter II".
 	SortKeys []string
+	// Names, if set, are the names the games are shown under here (one
+	// per game in Files, "" = its own name), e.g. the [Genres] folder's
+	// "[SNES] Street Fighter II": the folder points at the games
+	// themselves instead of keeping a renamed copy of each.
+	Names []string
 
 	// The folder's listing as last worked out (see Entries), and what
 	// for.
@@ -57,6 +62,14 @@ func (n *Node) AddAZFolder(name string) {
 	az.Pinned = true
 	az.Files = files
 	n.Children[name] = az
+}
+
+// NameAt is the name game i of this folder is shown under.
+func (n *Node) NameAt(i int) string {
+	if i < len(n.Names) && n.Names[i] != "" {
+		return n.Names[i]
+	}
+	return n.Files[i].Name
 }
 
 // HasSubfolders reports whether this folder has real (not pinned) subfolders.

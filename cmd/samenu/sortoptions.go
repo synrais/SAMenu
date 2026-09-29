@@ -227,7 +227,7 @@ func gameSortOptions(stdscr *gc.Window, cfg *config.Config) {
 			var lines []string
 			for _, e := range sample.Entries(gameOrder(), optFolders.value()) {
 				if e.File != nil {
-					lines = append(lines, gameName(e.File.Name, e.File.Ext))
+					lines = append(lines, gameName(e.Name, e.File.Ext))
 				} else {
 					lines = append(lines, e.Folder+"/")
 				}

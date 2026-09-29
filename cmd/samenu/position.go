@@ -122,6 +122,6 @@ func browseKey(e browseEntry) string {
 	case e.File == nil:
 		return "f:" + e.Folder
 	default:
-		return "i:" + e.File.Name + "." + e.File.Ext
+		return "i:" + e.Name + "." + e.File.Ext
 	}
 }

@@ -84,23 +84,23 @@ func buildGenreTree(files []MenuFile, hidden []bool) *gamesdb.Node {
 			return
 		}
 		seen[n][key] = true
-		keepOriginalRef(orig)
-		f := *orig // this folder's copy, named with its system
-		sys := nameOf(f.SystemId)
-		title := f.Name
+		sys := nameOf(orig.SystemId)
+		title := orig.Name
+		name := "" // shown under its own name (Off)
 		switch genresSystem {
 		case "After":
-			f.Name = title + " [" + sys + "]"
+			name = title + " [" + sys + "]"
 		case "Off":
 		default: // Before
-			f.Name = "[" + sys + "] " + title
+			name = "[" + sys + "] " + title
 		}
 		// Sort by title (the system settles ties), or by system then title.
 		sortKey := title + "\x00" + rank[sys]
 		if genresOrder == "System" {
 			sortKey = rank[sys] + "\x00" + title
 		}
-		n.Files = append(n.Files, &f)
+		n.Files = append(n.Files, orig) // the game itself, not a copy
+		n.Names = append(n.Names, name)
 		n.SortKeys = append(n.SortKeys, sortKey)
 	}
 	// hasSub reports whether a game's genres include a sub-genre of g

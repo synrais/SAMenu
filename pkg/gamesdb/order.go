@@ -105,6 +105,7 @@ func isDigit(c byte) bool { return c >= '0' && c <= '9' }
 type Entry struct {
 	Folder  string    // set for a subfolder
 	File    *FileInfo // set for a game
+	Name    string    // a game's name as this folder shows it (see Node.Names)
 	Node    *Node     // set for a disc set: a folder made up for its discs
 	sortKey string    // from Node.SortKeys
 }
@@ -198,7 +199,7 @@ func (n *Node) entries(o GameOrder, folders string) []Entry {
 	}
 	for i := range n.Files {
 		if !grouped[i] {
-			files = append(files, Entry{File: n.Files[i], sortKey: fileKey(i)})
+			files = append(files, Entry{File: n.Files[i], Name: n.NameAt(i), sortKey: fileKey(i)})
 		}
 	}
 	key := func(e Entry) string {
@@ -206,7 +207,7 @@ func (n *Node) entries(o GameOrder, folders string) []Entry {
 			return e.sortKey
 		}
 		if e.File != nil {
-			return e.File.Name
+			return e.Name
 		}
 		return e.Folder
 	}
@@ -276,8 +277,8 @@ func discBase(name string) (string, bool) {
 func (n *Node) discSets() []*Node {
 	byBase := map[string][]int{}
 	var order []string
-	for i, f := range n.Files {
-		if base, ok := discBase(f.Name); ok {
+	for i := range n.Files {
+		if base, ok := discBase(n.NameAt(i)); ok {
 			if _, seen := byBase[base]; !seen {
 				order = append(order, base)
 			}
@@ -296,6 +297,9 @@ func (n *Node) discSets() []*Node {
 		set := &Node{Name: base, Children: map[string]*Node{}, discIdx: idx}
 		for _, i := range idx {
 			set.Files = append(set.Files, n.Files[i])
+			if len(n.Names) > 0 {
+				set.Names = append(set.Names, n.NameAt(i))
+			}
 		}
 		sets = append(sets, set)
 	}
