@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	gc "github.com/rthornton128/goncurses"
@@ -46,33 +47,39 @@ func gameListsScreen(stdscr *gc.Window) {
 
 // listSystemsScreen shows the systems with a list of this kind.
 func listSystemsScreen(stdscr *gc.Window, kind attract.ListKind) {
-	(&menuScreen{title: string(kind), lines: func() []menuLine {
+	// Remove all (a button): every system's list of this kind at once. It
+	// asks first; once they're gone, the screen closes.
+	removeAll := func() bool {
+		lists := attract.ListFiles(kind)
+		question := fmt.Sprintf("Remove the %s of all %s (%s)?", kind, countText(len(lists), "system"), countText(gamesIn(lists), "game"))
+		if len(lists) == 1 {
+			question = fmt.Sprintf("Remove the %s %s (%s)?", games.DisplayName(lists[0].SystemID), kind, countText(gamesIn(lists), "game"))
+		}
+		if !confirm(stdscr, question, "Remove all", "Cancel") {
+			return false
+		}
+		for _, l := range lists {
+			if err := attract.DeleteList(l.Path); err != nil {
+				message(stdscr, "Couldn't remove the "+games.DisplayName(l.SystemID)+" list: "+err.Error())
+				return false
+			}
+		}
+		return true
+	}
+	(&menuScreen{title: string(kind), buttons: []screenButton{{"Remove all", removeAll}}, lines: func() []menuLine {
 		lists := attract.ListFiles(kind)
 		if len(lists) == 0 {
 			return nil // the last one went: back to the kinds
 		}
+		sort.Slice(lists, func(i, j int) bool { // A-Z by the name shown
+			return utils.LessFold(games.DisplayName(lists[i].SystemID), games.DisplayName(lists[j].SystemID))
+		})
 		var lines []menuLine
 		for _, l := range lists {
 			l := l
 			lines = append(lines, opens(settingText(games.DisplayName(l.SystemID)+":", countText(len(l.Games), "game")),
 				func() { listGamesScreen(stdscr, kind, l) }))
 		}
-		// Every system's list of this kind at once (it asks first).
-		lines = append(lines, info(""), action("Remove", "Remove all", func() {
-			question := fmt.Sprintf("Remove the %s of all %s (%s)?", kind, countText(len(lists), "system"), countText(gamesIn(lists), "game"))
-			if len(lists) == 1 {
-				question = fmt.Sprintf("Remove the %s %s (%s)?", games.DisplayName(lists[0].SystemID), kind, countText(gamesIn(lists), "game"))
-			}
-			if !confirm(stdscr, question, "Remove all", "Cancel") {
-				return
-			}
-			for _, l := range lists {
-				if err := attract.DeleteList(l.Path); err != nil {
-					message(stdscr, "Couldn't remove the "+games.DisplayName(l.SystemID)+" list: "+err.Error())
-					return
-				}
-			}
-		}))
 		return lines
 	}}).run(stdscr)
 }

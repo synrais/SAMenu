@@ -106,6 +106,16 @@ type menuScreen struct {
 	lines    func() []menuLine
 	preview  func() []string // a live preview in a box under the list, if any
 	leave    func()          // run on leaving the screen (e.g. saving), if any
+	// buttons are more buttons, between Select and Back, for the whole
+	// screen rather than one line (e.g. Remove all). press reports
+	// whether to leave the screen.
+	buttons []screenButton
+}
+
+// screenButton is one of a menuScreen's own buttons.
+type screenButton struct {
+	label string
+	press func() bool
 }
 
 // run shows the screen until Back, or until a line leaves it. The lines
@@ -116,7 +126,11 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 	if m.leave != nil {
 		defer m.leave()
 	}
-	buttons := []string{"Select", "Back"}
+	buttons := []string{"Select"}
+	for _, b := range m.buttons {
+		buttons = append(buttons, b.label)
+	}
+	buttons = append(buttons, "Back")
 	pressed := "" // the name of the line last pressed
 	for {
 		lines := m.lines()
@@ -199,6 +213,12 @@ func (m *menuScreen) run(stdscr *gc.Window) {
 			previewWin.Delete()
 		}
 		clearScreen(stdscr)
+		if err == nil && button > 0 && button <= len(m.buttons) {
+			if m.buttons[button-1].press() {
+				return
+			}
+			continue
+		}
 		if err != nil || button != 0 || sel < 0 || sel >= len(lines) {
 			return
 		}
