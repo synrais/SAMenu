@@ -342,7 +342,7 @@ Per-system lists live in `.MiSTer_SAMenu/Lists/`, one file per system, with one 
 
 Each list can be switched on or off, and limited to some systems, in `[List]`.
 
-**Options → Attract Mode → Game lists** shows each list, system by system, to take games off it: **Remove** takes off the highlighted game straight away, **Remove all** (it asks first) the whole system's list. A system's list goes once its last game does, so a whitelist never stays behind empty: an empty whitelist would play nothing for its system, while no whitelist plays everything. Comments in a list file are kept.
+**Options → Attract Mode → Game lists** shows each list, system by system, to take games off it: **Remove** takes off the highlighted game straight away, **Remove all** (it asks first) the whole system's list. On the list of systems, **Remove all** clears that list for every system at once (it asks first too). A system's list goes once its last game does, so a whitelist never stays behind empty: an empty whitelist would play nothing for its system, while no whitelist plays everything. Comments in a list file are kept.
 
 ### Static screen detector
 

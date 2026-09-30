@@ -36,8 +36,10 @@ func gameListsScreen(stdscr *gc.Window) {
 			}
 			lines = append(lines, opens(settingText(string(k)+":", value), func() { listSystemsScreen(stdscr, k) }))
 		}
-		lines = append(lines, info(""), info("Blacklist: never played. Staticlist: left once"),
-			info("their screen goes static. Whitelist: the only games"), info("played (for a system that has one)."))
+		lines = append(lines, info(""),
+			info("Blacklist:  games never played"),
+			info("Staticlist: games left once their screen goes static"),
+			info("Whitelist:  the only games played, for its system"))
 		return lines
 	}}).run(stdscr)
 }
@@ -55,6 +57,22 @@ func listSystemsScreen(stdscr *gc.Window, kind attract.ListKind) {
 			lines = append(lines, opens(settingText(games.DisplayName(l.SystemID)+":", countText(len(l.Games), "game")),
 				func() { listGamesScreen(stdscr, kind, l) }))
 		}
+		// Every system's list of this kind at once (it asks first).
+		lines = append(lines, info(""), action("Remove", "Remove all", func() {
+			question := fmt.Sprintf("Remove the %s of all %s (%s)?", kind, countText(len(lists), "system"), countText(gamesIn(lists), "game"))
+			if len(lists) == 1 {
+				question = fmt.Sprintf("Remove the %s %s (%s)?", games.DisplayName(lists[0].SystemID), kind, countText(gamesIn(lists), "game"))
+			}
+			if !confirm(stdscr, question, "Remove all", "Cancel") {
+				return
+			}
+			for _, l := range lists {
+				if err := attract.DeleteList(l.Path); err != nil {
+					message(stdscr, "Couldn't remove the "+games.DisplayName(l.SystemID)+" list: "+err.Error())
+					return
+				}
+			}
+		}))
 		return lines
 	}}).run(stdscr)
 }
