@@ -204,7 +204,7 @@ Changes are saved to `SAMenu.ini` as you make them.
 
 A log opens at its newest line. Scroll up with Up and PgUp; **Refresh** reads it again, for one that's still being written. Only the last 256 KB of a big log is read. SAMenu's logs are in `/tmp`, in RAM: they're gone after a reboot.
 
-The options screens' lists of systems always look the same, whatever your Display & Sorting settings: under **Arcade**, **Consoles**, **Handhelds**, **Computers** and **Other**, A-Z in each. That's database systems, attract mode systems, Virtual A-Z Folders, leaving systems out (of [Genre Collection] or a playlist), a playlist's Per system, and BIOS Skip's Add a system. **Cores** is the one exception: it's grouped by the folder each core is in (see [Choosing a core](#choosing-a-core)).
+The options screens' lists of systems always look the same, whatever your Display & Sorting settings: under **Arcade**, **Consoles**, **Handhelds**, **Computers** and **Other**, A-Z in each. That's database systems, attract mode systems, Virtual A-Z Folders, leaving systems out (of [Genre Collection] or a playlist), a playlist's Per system, BIOS Skip's Add a system, and the Game lists. **Cores** is the one exception: it's grouped by the folder each core is in (see [Choosing a core](#choosing-a-core)).
 
 In the lists you tick, each group's heading has its own box: **[x]** all on, **[ ]** none, **[-]** some. Choose it to turn the whole group on, or off when it already is. **All** and **None** do the whole list.
 
@@ -342,7 +342,7 @@ Per-system lists live in `.MiSTer_SAMenu/Lists/`, one file per system, with one 
 
 Each list can be switched on or off, and limited to some systems, in `[List]`.
 
-**Options → Attract Mode → Game lists** shows each list, system by system, to take games off it: **Remove** takes off the highlighted game straight away, **Remove all** (it asks first) the whole system's list. On a list's systems screen (A-Z), the **Remove all** button clears that list for every system at once (it asks first too). A system's list goes once its last game does, so a whitelist never stays behind empty: an empty whitelist would play nothing for its system, while no whitelist plays everything. Comments in a list file are kept.
+**Options → Attract Mode → Game lists** shows each list, system by system, to take games off it: **Remove** takes off the highlighted game straight away, **Remove all** (it asks first) the whole system's list. On a list's systems screen (grouped under Arcade, Consoles, Handhelds, Computers and Other, like every options screen's systems), the **Remove all** button clears that list for every system at once (it asks first too). A system's list goes once its last game does, so a whitelist never stays behind empty: an empty whitelist would play nothing for its system, while no whitelist plays everything. Comments in a list file are kept.
 
 ### Static screen detector
 

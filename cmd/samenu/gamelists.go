@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 
 	gc "github.com/rthornton128/goncurses"
@@ -71,14 +70,23 @@ func listSystemsScreen(stdscr *gc.Window, kind attract.ListKind) {
 		if len(lists) == 0 {
 			return nil // the last one went: back to the kinds
 		}
-		sort.Slice(lists, func(i, j int) bool { // A-Z by the name shown
-			return utils.LessFold(games.DisplayName(lists[i].SystemID), games.DisplayName(lists[j].SystemID))
-		})
-		var lines []menuLine
+		// Under Arcade, Consoles, Handhelds, Computers and Other, A-Z in
+		// each, like every options screen's list of systems.
+		byID := map[string]attract.ListFile{}
+		var ids []string
 		for _, l := range lists {
-			l := l
-			lines = append(lines, opens(settingText(games.DisplayName(l.SystemID)+":", countText(len(l.Games), "game")),
-				func() { listGamesScreen(stdscr, kind, l) }))
+			byID[l.SystemID] = l
+			ids = append(ids, l.SystemID)
+		}
+		cats, byCat := categoryGroups(ids)
+		var lines []menuLine
+		for _, cat := range cats {
+			lines = append(lines, heading(categoryTitles[cat]))
+			for _, id := range byCat[cat] {
+				l := byID[id]
+				lines = append(lines, opens(settingIndented(games.DisplayName(id)+":", countText(len(l.Games), "game")),
+					func() { listGamesScreen(stdscr, kind, l) }))
+			}
 		}
 		return lines
 	}}).run(stdscr)
