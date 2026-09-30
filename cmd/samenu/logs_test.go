@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -75,5 +77,39 @@ func TestLogLabels(t *testing.T) {
 	_ = os.WriteFile(full, []byte(strings.Repeat("x\n", 600)), 0644)
 	if about, ok := (logSource{name: "x", path: full}).about(); !ok || about != "(just now, 1 KB)" {
 		t.Errorf("about: %q %v", about, ok)
+	}
+}
+
+func TestLogOutputTo(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "idle.log")
+	_ = os.WriteFile(p, []byte("12:00:00.0  from before\n"), 0644)
+	keep := logCap
+	defer func() { logCap = keep }()
+	logCap = 200
+
+	logOutputTo(p)
+	fmt.Println("first line")
+	fmt.Println("second line")
+	flushLog()
+	data, _ := os.ReadFile(p)
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != 3 || lines[0] != "12:00:00.0  from before" ||
+		!strings.HasSuffix(lines[1], "  first line") || !strings.HasSuffix(lines[2], "  second line") {
+		t.Fatalf("log: %q", lines)
+	}
+	if !regexp.MustCompile(`^\d\d:\d\d:\d\d\.\d  `).MatchString(lines[1]) {
+		t.Errorf("no time: %q", lines[1])
+	}
+
+	// Past the cap it starts again, saying so.
+	logOutputTo(p)
+	for i := 0; i < 20; i++ {
+		fmt.Printf("line %d\n", i)
+	}
+	flushLog()
+	data, _ = os.ReadFile(p)
+	if int64(len(data)) > logCap+100 || !strings.Contains(string(data), "started again") ||
+		!strings.HasSuffix(strings.TrimSpace(string(data)), "line 19") {
+		t.Errorf("capped log (%d bytes):\n%s", len(data), data)
 	}
 }

@@ -143,17 +143,21 @@ func Status() string {
 func Run(cfg *config.Config) {
 	_ = os.Remove(CommandPipe)
 	if err := syscall.Mkfifo(CommandPipe, 0666); err != nil {
+		fmt.Println("Can't start: no command pipe:", err)
 		return
 	}
 	pipe, err := os.OpenFile(CommandPipe, os.O_RDWR, 0)
 	if err != nil {
+		fmt.Println("Can't start: no command pipe:", err)
 		return
 	}
 	_ = os.WriteFile(PidFile, []byte(fmt.Sprint(os.Getpid())), 0644)
+	fmt.Printf("Started (playlist %q, %s)\n", cfg.Music.Playlist, cfg.Music.Playback)
 	defer func() {
 		_ = os.Remove(CommandPipe)
 		_ = os.Remove(PidFile)
 		_ = os.Remove(StatusFile)
+		fmt.Println("Stopped")
 	}()
 
 	cmds := make(chan string, 4)
@@ -164,7 +168,12 @@ func Run(cfg *config.Config) {
 		}
 	}()
 
-	status := func(s string) { _ = os.WriteFile(StatusFile, []byte(s+"\n"), 0644) }
+	// What it's doing: in its status file (-music/-video status), and its
+	// log (the process's output: SAMenu logs it).
+	status := func(s string) {
+		_ = os.WriteFile(StatusFile, []byte(s+"\n"), 0644)
+		fmt.Println(s)
+	}
 	at := -1      // In order: the track playing, in the folder
 	back := false // Previous was pressed (In order only)
 	for {

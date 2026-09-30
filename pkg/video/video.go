@@ -417,7 +417,12 @@ func Resolve(cfg *config.Config, target string) ([]string, bool, error) {
 // Run is the background player process: play the target's videos once
 // through, then leave the MiSTer on its menu.
 func Run(cfg *config.Config, target string) {
-	status := func(s string) { _ = os.WriteFile(StatusFile, []byte(s+"\n"), 0644) }
+	// What it's doing: in its status file (-music/-video status), and its
+	// log (the process's output: SAMenu logs it).
+	status := func(s string) {
+		_ = os.WriteFile(StatusFile, []byte(s+"\n"), 0644)
+		fmt.Println(s)
+	}
 	vids, shuffle, err := Resolve(cfg, target)
 	if err != nil {
 		return // -video play checks the target before starting this

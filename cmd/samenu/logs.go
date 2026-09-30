@@ -45,6 +45,11 @@ type logSource struct {
 func samenuLogs() []logSource {
 	return []logSource{
 		{name: "Attract mode", path: attractLog},
+		{name: "Idle watcher", path: idleLog},
+		{name: "Startup", path: bootLog},
+		{name: "BIOS skip", path: biosSkipLog},
+		{name: "Music player", path: musicLog},
+		{name: "Video player", path: videoLog},
 		{name: "Opening SAMenu on the TV", path: mister.OpenMenuLog},
 	}
 }

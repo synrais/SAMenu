@@ -228,22 +228,37 @@ func stopAutoInput() {
 // RunAutoInput is the background process: create the devices, run the
 // sequence, remove the devices.
 func RunAutoInput(seq string) {
+	if core, _ := GetActiveCoreName(); strings.TrimSpace(core) != "" {
+		fmt.Printf("Sequence %q (core %s)\n", seq, strings.TrimSpace(core))
+	} else {
+		fmt.Printf("Sequence %q\n", seq)
+	}
 	steps, err := ParseSequence(seq)
 	if err != nil {
+		fmt.Println("Can't run it:", err)
 		return
 	}
 	dev, err := OpenDevices(steps)
 	if err != nil {
+		fmt.Println("Couldn't make the virtual pad or keyboard:", err)
 		return
 	}
 	defer dev.Close()
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 	done := make(chan struct{})
-	go func() { _ = dev.Run(steps, nil); close(done) }()
+	go func() {
+		if err := dev.Run(steps, func(s string) { fmt.Println(s) }); err != nil {
+			fmt.Println("Stopped:", err)
+		} else {
+			fmt.Println("Done")
+		}
+		close(done)
+	}()
 	select {
 	case <-done:
 	case <-sig:
+		fmt.Println("Stopped (the game changed)")
 	}
 	_ = os.Remove(autoInputPid)
 }

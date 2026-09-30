@@ -677,11 +677,15 @@ func main() {
 		}
 	}
 	if *idleWatchPtr {
+		logOutputTo(idleLog)
 		runIdleWatcher()
+		flushLog()
 		return
 	}
 	if *musicdPtr {
+		logOutputTo(musicLog)
 		music.Run(mustConfig())
+		flushLog()
 		return
 	}
 	if *musicPtr != "" {
@@ -689,7 +693,9 @@ func main() {
 		return
 	}
 	if *videodPtr {
+		logOutputTo(videoLog)
 		video.Run(mustConfig(), strings.Join(flag.Args(), " "))
+		flushLog()
 		return
 	}
 	if *videoPtr != "" {
@@ -700,7 +706,9 @@ func main() {
 		// A mute left by attract mode before a restart (MiSTer keeps it on
 		// the SD card) is undone.
 		mister.UndoStaleMute(false)
+		logOutputTo(bootLog)
 		bootStart(*bootPtr)
+		flushLog()
 		return
 	}
 	if *findPtr && !*attractPtr { // -attract -find: attract mode's own start (below)
@@ -779,7 +787,9 @@ func main() {
 		return
 	}
 	if *autoInputPtr != "" {
+		logOutputTo(biosSkipLog)
 		mister.RunAutoInput(*autoInputPtr)
+		flushLog()
 		return
 	}
 	if *pressPtr {

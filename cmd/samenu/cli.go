@@ -345,17 +345,25 @@ func videoCommand(cmd, target string) {
 // bootStart runs from user-startup.sh at MiSTer startup: it waits for the
 // MiSTer to finish starting, then opens SAMenu or attract mode.
 func bootStart(what string) {
+	fmt.Printf("Startup: %s. Waiting for the MiSTer to finish starting...\n", what)
 	if err := mister.WaitForMiSTer(); err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Println("The MiSTer is ready")
 	switch what {
 	case "attract":
 		if bootCountdown() {
-			_ = startAttractInBackground()
+			fmt.Println("Starting attract mode")
+			if err := startAttractInBackground(); err != nil {
+				fmt.Println("Couldn't start attract mode:", err)
+			}
 		}
 	case "menu":
-		_ = mister.OpenGamesMenu(false)
+		fmt.Println("Opening SAMenu")
+		if err := mister.OpenGamesMenu(false); err != nil {
+			fmt.Println("Couldn't open SAMenu:", err)
+		}
 	}
 }
 
@@ -369,8 +377,13 @@ func bootCountdown() bool {
 	cfg := mustConfig()
 	delay := time.Duration(cfg.Startup.AttractDelay) * time.Second
 	if cfg.Startup.AttractWhen != "After a delay" || delay <= 0 {
-		return !attract.Running()
+		if attract.Running() {
+			fmt.Println("Attract mode is already running")
+			return false
+		}
+		return true
 	}
+	fmt.Printf("Waiting %s before attract mode (a press: %s)\n", delay, strings.ToLower(cfg.Startup.AttractPress))
 	var events <-chan input.Event
 	if cfg.Startup.AttractPress != "Is ignored" {
 		stickRules()
@@ -384,23 +397,32 @@ func bootCountdown() bool {
 // becoming true (attract mode started some other way) also ends it false.
 func countdown(delay time.Duration, press string, events <-chan input.Event, running func() bool, step time.Duration) bool {
 	deadline := time.Now().Add(delay)
+	waiting := false // for a script to finish (logged once)
 	tick := time.NewTicker(step)
 	defer tick.Stop()
 	for {
 		select {
 		case <-events:
 			if press == "Cancels it" {
+				fmt.Println("Something was pressed: attract mode won't start")
 				return false
 			}
+			fmt.Printf("Something was pressed: waiting %s again\n", delay)
 			deadline = time.Now().Add(delay)
 		case now := <-tick.C:
 			if running() {
+				fmt.Println("Attract mode started some other way")
 				return false
 			}
-			if _, busy := mister.Busy(); busy {
+			if what, busy := mister.Busy(); busy {
+				if !waiting {
+					fmt.Printf("Something is running (%s): waiting for it to finish\n", what)
+					waiting = true
+				}
 				deadline = now.Add(delay) // wait for the script, then the full delay
 				continue
 			}
+			waiting = false
 			if now.After(deadline) {
 				return true
 			}

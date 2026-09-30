@@ -85,6 +85,8 @@ func runIdleWatcher() {
 	cfg := mustConfig()
 	lastInput, lastLoad := time.Now(), time.Now()
 	iniText, _ := os.ReadFile(cfg.Path)
+	fmt.Println("Started: " + idleSettings(cfg))
+	notCounting := "" // why idle time isn't counted, as last logged ("" = it is)
 	tick := time.NewTicker(time.Second)
 	defer tick.Stop()
 	for {
@@ -101,11 +103,13 @@ func runIdleWatcher() {
 				if text, err := os.ReadFile(cfg.Path); err == nil && !bytes.Equal(text, iniText) {
 					if c, err := config.Load(); err == nil {
 						cfg, iniText = c, text
+						fmt.Println("SAMenu.ini changed: " + idleSettings(cfg))
 					}
 				}
 			}
 			if !cfg.IdleWatch() {
-				return // switched off
+				fmt.Println("Switched off in Startup: stopping")
+				return
 			}
 			running := attract.Running()
 			mister.UndoStaleMute(running)
@@ -113,8 +117,27 @@ func runIdleWatcher() {
 			counts := cfg.Startup.IdleWhere == config.IdleBoth ||
 				(cfg.Startup.IdleWhere == config.IdleMenu && inMenu) ||
 				(cfg.Startup.IdleWhere == config.IdleGames && !inMenu)
-			if running || video.Playing() || !counts {
-				lastInput = now // not counting: attract mode, a video, or not a place set in Where
+			why := ""
+			switch {
+			case running:
+				why = "attract mode is running"
+			case video.Playing():
+				why = "a video is playing"
+			case !counts && inMenu:
+				why = "in the MiSTer menu (idle time counts in: " + cfg.Startup.IdleWhere + ")"
+			case !counts:
+				why = "in a game (idle time counts in: " + cfg.Startup.IdleWhere + ")"
+			}
+			if why != notCounting {
+				if why == "" {
+					fmt.Println("Counting idle time")
+				} else {
+					fmt.Println("Not counting: " + why)
+				}
+				notCounting = why
+			}
+			if why != "" {
+				lastInput = now
 				gate.Pause()
 				continue
 			}
@@ -122,11 +145,22 @@ func runIdleWatcher() {
 			if now.Sub(lastInput) >= time.Duration(cfg.Startup.IdleTime)*time.Minute {
 				// Never over a script (e.g. update_all): the timer starts
 				// again. Looked for only now, as it reads every process.
-				if _, busy := mister.Busy(); !busy {
-					_ = startAttractInBackground()
+				if what, busy := mister.Busy(); busy {
+					fmt.Printf("Nothing pressed for %d min, but something is running (%s): not now\n", cfg.Startup.IdleTime, what)
+				} else {
+					fmt.Printf("Nothing pressed for %d min: starting attract mode\n", cfg.Startup.IdleTime)
+					if err := startAttractInBackground(); err != nil {
+						fmt.Println("Couldn't start attract mode:", err)
+					}
 				}
 				lastInput = now
 			}
 		}
 	}
+}
+
+// idleSettings describes the idle watcher's settings, for its log.
+func idleSettings(cfg *config.Config) string {
+	return fmt.Sprintf("attract mode after %d min with nothing pressed, counting in: %s",
+		cfg.Startup.IdleTime, cfg.Startup.IdleWhere)
 }

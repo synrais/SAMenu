@@ -199,7 +199,7 @@ Changes are saved to `SAMenu.ini` as you make them.
 
 **Logs** lists the logs there are right now, with how old and how big each is:
 
-- **SAMenu logs**: attract mode (every game, skip and press, and why it stopped) and opening SAMenu on the TV.
+- **SAMenu logs**: attract mode (every game, skip and press, and why it stopped), the idle watcher (when it counts idle time, and why not, and when it starts attract mode), startup (the wait for the MiSTer, the countdown, what it started), BIOS skip (each sequence and press), the music and video players (each track or video, pauses) and opening SAMenu on the TV.
 - **MiSTer logs**: Linux's kernel messages (what `dmesg` shows: devices plugged in, SD card and USB errors), MiSTer's own program after SAMenu had to restart it, the system log if there is one, and every `.log` file the updaters keep under `/media/fat/Scripts/.config` (the downloader's, for one).
 
 A log opens at its newest line. Scroll up with Up and PgUp; **Refresh** reads it again, for one that's still being written. Only the last 256 KB of a big log is read. SAMenu's logs are in `/tmp`, in RAM: they're gone after a reboot.
@@ -837,7 +837,8 @@ For example, `Include = Nintendo, Sega` with `Exclude = Gameboy2P` plays every N
 | `/media/fat/Scripts/.MiSTer_SAMenu/attract_muted` | Only while attract mode has the sound muted, so it can be undone after a restart |
 | `/media/fat/music/` | Music (folders are playlists) |
 | `/media/fat/video/` | Videos (folders are playlists) |
-| `/tmp/SAMenu_attract.log` | Attract mode's log, when started with `-bg` |
+| `/tmp/SAMenu_attract.log` | Attract mode's log, when started in the background (menu, idle watcher, startup, `-bg`) |
+| `/tmp/SAMenu_idle.log`, `SAMenu_boot.log`, `SAMenu_biosskip.log`, `SAMenu_music.log`, `SAMenu_video.log` | The idle watcher's, startup's, BIOS skip's and the players' logs (each starts again at 512 KB). All of them are in **Options → Logs** |
 | `/tmp/SAMenu_attract.status` | What attract mode is playing |
 | `/tmp/SAMenu_attract_history.json` | What attract mode has played this session (`[History]` > Attract) |
 | `/tmp/SAMenu_detector` | The static detector's live status, written only while `-watch` runs |

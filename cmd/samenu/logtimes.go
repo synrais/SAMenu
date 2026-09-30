@@ -81,3 +81,68 @@ func startedBy() string {
 		return "-attract -bg"
 	}
 }
+
+// Background processes' logs, in /tmp (in RAM: no SD card writes, gone at
+// reboot). Attract mode has its own (attractLog).
+const (
+	idleLog     = "/tmp/SAMenu_idle.log"
+	bootLog     = "/tmp/SAMenu_boot.log"
+	musicLog    = "/tmp/SAMenu_music.log"
+	videoLog    = "/tmp/SAMenu_video.log"
+	biosSkipLog = "/tmp/SAMenu_biosskip.log"
+)
+
+// logCap is the most a background log grows to: one that reaches it
+// starts again (the idle watcher runs for as long as the MiSTer is on).
+var logCap int64 = 512 * 1024
+
+// logOutputTo sends what this process prints to a log file, each line
+// with the time. The file is added to, and started again once it reaches
+// logCap. flushLog must run before the process ends.
+func logOutputTo(path string) {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return
+	}
+	size := int64(0)
+	if info, err := f.Stat(); err == nil {
+		size = info.Size()
+	}
+	r, w, err := os.Pipe()
+	if err != nil {
+		f.Close()
+		return
+	}
+	out := os.Stdout
+	os.Stdout, os.Stderr = w, w
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer f.Close()
+		sc := bufio.NewScanner(r)
+		for sc.Scan() {
+			if size >= logCap {
+				_ = f.Truncate(0)
+				size = 0
+				n, _ := fmt.Fprintf(f, "%s(the log reached %d KB, so it started again)\n", clock(), logCap/1024)
+				size += int64(n)
+			}
+			n, _ := fmt.Fprintf(f, "%s%s\n", clock(), sc.Text())
+			size += int64(n)
+		}
+	}()
+	flushLog = func() {
+		os.Stdout, os.Stderr = out, out
+		_ = w.Close()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
+// clock is how a background log line starts: the time.
+func clock() string {
+	now := time.Now()
+	return fmt.Sprintf("%s.%d  ", now.Format("15:04:05"), now.Nanosecond()/1e8)
+}
