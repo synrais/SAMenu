@@ -152,3 +152,77 @@ func appendLine(path, line string) error {
 	_, err = fmt.Fprintln(f, line)
 	return err
 }
+
+// ListFile is one system's list, as the lists editor shows it.
+type ListFile struct {
+	SystemID string
+	Path     string
+	Games    []string // its lines that are games, as written (comments and blanks left out)
+}
+
+// ListFiles returns the systems with a list of this kind, and their games.
+// A list with no games isn't returned.
+func ListFiles(kind ListKind) []ListFile {
+	dir := filepath.Join(config.ListsFolder, string(kind))
+	suffix := "_" + strings.ToLower(string(kind)) + ".txt"
+	entries, _ := os.ReadDir(dir)
+	var out []ListFile
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(strings.ToLower(name), suffix) {
+			continue
+		}
+		l := ListFile{SystemID: name[:len(name)-len(suffix)], Path: filepath.Join(dir, name)}
+		readLines(l.Path, func(line string) { l.Games = append(l.Games, line) })
+		if len(l.Games) > 0 {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// RemoveFromList removes a game from a list: the first line that is line
+// (as ListFiles gave it), keeping every other line, comments too. A list
+// left with no games is deleted: an empty whitelist would play nothing
+// at all for its system, and no list plays everything, which is what
+// removing its last game should mean.
+func RemoveFromList(path, line string) error {
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
+	var kept []string
+	removed, games := false, 0
+	for _, l := range lines {
+		t := strings.TrimSpace(l)
+		if !removed && t == line {
+			removed = true
+			continue
+		}
+		if t != "" && t[0] != '#' && t[0] != ';' {
+			games++
+		}
+		kept = append(kept, l)
+	}
+	if !removed {
+		return fmt.Errorf("%q isn't in the list any more", line)
+	}
+	if games == 0 {
+		return os.Remove(path)
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strings.Join(kept, "\n")+"\n"), 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// DeleteList deletes a whole list.
+func DeleteList(path string) error {
+	writeMu.Lock()
+	defer writeMu.Unlock()
+	return os.Remove(path)
+}

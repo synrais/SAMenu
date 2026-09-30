@@ -187,7 +187,7 @@ Press **X** (Space) on the systems screen.
 | Section | What's in it |
 |:--|:--|
 | **Game Database** | Rebuild the database (it asks first), choose which systems it includes (added or removed straight away, without a full rebuild), and which core each system uses |
-| **Attract Mode** | Start attract mode, its settings, attract playlists, and the detector and list settings |
+| **Attract Mode** | Start attract mode, its settings, attract playlists, the detector and list settings, and the game lists (take games off them) |
 | **Display & Sorting** | Menu list options (labels, text size, remember position), menu list sorting, game list sorting (including hidden tags), Virtual A-Z Folders, [Pick Random Game], [Genre Collection], [Favourites] and [History] |
 | **Controls** | **Games Menu** (Menu Layout and the menu's mapping), **Attract Mode** (which inputs it watches, sticks, its mapping, and what other buttons do), **BIOS Skip** (when it runs, and each system's sequence) and the **Input test** |
 | **Music Player** | Play and stop, next and previous track, the playback order and the playlist |
@@ -341,6 +341,8 @@ Per-system lists live in `.MiSTer_SAMenu/Lists/`, one file per system, with one 
 | **Whitelist** | `Lists/Whitelist/SNES_whitelist.txt` | A list you make yourself. For a system that has one, attract mode only plays the games on it |
 
 Each list can be switched on or off, and limited to some systems, in `[List]`.
+
+**Options → Attract Mode → Game lists** shows each list, system by system, to take games off it: **Remove** takes off the highlighted game straight away, **Remove all** (it asks first) the whole system's list. A system's list goes once its last game does, so a whitelist never stays behind empty: an empty whitelist would play nothing for its system, while no whitelist plays everything. Comments in a list file are kept.
 
 ### Static screen detector
 

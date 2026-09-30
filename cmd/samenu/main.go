@@ -213,6 +213,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 				opens("Attract mode settings...", func() { attractSettingsScreen(stdscr, cfg, sysIds) }),
 				opens("Playlists...", func() { playlistsScreen(stdscr, cfg, files) }),
 				opens("Detector & list settings...", func() { detectorSettingsScreen(stdscr, cfg) }),
+				opens("Game lists...", func() { gameListsScreen(stdscr) }),
 			),
 			group("Display & Sorting",
 				opens("Menu list options...", func() { menuListOptions(stdscr, sysIds, cfg) }),
