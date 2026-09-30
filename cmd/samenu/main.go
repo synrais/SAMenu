@@ -228,6 +228,7 @@ func optionsMenu(cfg *config.Config, stdscr *gc.Window, files []MenuFile, sysIds
 			opens("Music Player", func() { musicScreen(stdscr, cfg) }),
 			opens("Video Player", func() { videoScreen(stdscr, cfg) }),
 			opens("Startup", func() { startupScreen(stdscr, cfg) }),
+			opens("Logs", func() { logsScreen(stdscr) }),
 		}
 	}}
 	options.run(stdscr)

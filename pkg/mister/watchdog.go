@@ -23,9 +23,9 @@ import (
 //
 //	cd /media/fat && ./MiSTer > /tmp/MiSTer.log 2>&1 &
 
-// mainLog keeps the restarted program's messages (in RAM), so a crash can
+// MainLog keeps the restarted program's messages (in RAM), so a crash can
 // be looked into: tail -50 /tmp/MiSTer.log
-const mainLog = "/tmp/MiSTer.log"
+const MainLog = "/tmp/MiSTer.log"
 
 // MainRunning reports whether the MiSTer main program is running.
 func MainRunning() bool {
@@ -62,7 +62,7 @@ func isMain(comm string) bool {
 // for it to be ready to take commands.
 func RestartMain() error {
 	exe := filepath.Join(config.SdFolder, "MiSTer")
-	logFile, err := os.OpenFile(mainLog, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	logFile, err := os.OpenFile(MainLog, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}

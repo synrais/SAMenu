@@ -193,8 +193,16 @@ Press **X** (Space) on the systems screen.
 | **Music Player** | Play and stop, next and previous track, the playback order and the playlist |
 | **Video Player** | Browse and play videos, the playlist settings, videos in attract mode, and the sync options |
 | **Startup** | What starts when the MiSTer boots |
+| **Logs** | Read the logs worth checking when something didn't go as expected (see below) |
 
 Changes are saved to `SAMenu.ini` as you make them.
+
+**Logs** lists the logs there are right now, with how old and how big each is:
+
+- **SAMenu logs**: attract mode (every game, skip and press, and why it stopped) and opening SAMenu on the TV.
+- **MiSTer logs**: Linux's kernel messages (what `dmesg` shows: devices plugged in, SD card and USB errors), MiSTer's own program after SAMenu had to restart it, the system log if there is one, and every `.log` file the updaters keep under `/media/fat/Scripts/.config` (the downloader's, for one).
+
+A log opens at its newest line. Scroll up with Up and PgUp; **Refresh** reads it again, for one that's still being written. Only the last 256 KB of a big log is read. SAMenu's logs are in `/tmp`, in RAM: they're gone after a reboot.
 
 The options screens' lists of systems always look the same, whatever your Display & Sorting settings: under **Arcade**, **Consoles**, **Handhelds**, **Computers** and **Other**, A-Z in each. That's database systems, attract mode systems, Virtual A-Z Folders, leaving systems out (of [Genre Collection] or a playlist), a playlist's Per system, and BIOS Skip's Add a system. **Cores** is the one exception: it's grouped by the folder each core is in (see [Choosing a core](#choosing-a-core)).
 
