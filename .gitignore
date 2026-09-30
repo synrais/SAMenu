@@ -1,0 +1,2 @@
+# A local build of SAMenu (go build ./cmd/samenu), not part of the source
+/samenu
